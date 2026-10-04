@@ -5,6 +5,9 @@ HOLIDAYS = {
     2024: [date(2024, 2, 10), date(2024, 4, 10), date(2024, 10, 31)],
     2025: [date(2025, 1, 29), date(2025, 3, 31), date(2025, 10, 20)],
     2026: [date(2026, 2, 17), date(2026, 3, 21), date(2026, 11, 8)],
+    # MOM's 18 June 2026 release; first day of CNY, Hari Raya Puasa, Deepavali.
+    # https://www.mom.gov.sg/newsroom/press-releases/2026/0618-public-holidays-for-2027
+    2027: [date(2027, 2, 6), date(2027, 3, 10), date(2027, 10, 28)],
 }
 
 
