@@ -15,7 +15,7 @@ def test_calendar_spikes():
     assert features(date(2026, 11, 2))[4] == 1
     assert features(date(2026, 11, 9))[6] == 1
     with pytest.raises(ValueError):
-        features(date(2027, 1, 1))
+        features(date(2028, 1, 1))
 
 
 def test_zero_safe_forecast_scores():
