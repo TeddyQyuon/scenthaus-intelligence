@@ -1,0 +1,2 @@
+✗ Daemon process exited during startup with no error output. Re-run with --debug for more details.
+Agent browser daemon unavailable; direct Playwright verification follows.

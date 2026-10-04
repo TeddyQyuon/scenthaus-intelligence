@@ -1,0 +1,11 @@
+
+Running 3 tests using 1 worker
+
+(node:452) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+NAV_URL http://127.0.0.1:5173/shop
+  ✓  1 e2e/journeys.spec.js:5:1 › storefront, persistent wishlist, quiz, bag and demo order (5.4s)
+  ✓  2 e2e/journeys.spec.js:106:1 › protected admin and all intelligence panels (5.2s)
+  ✓  3 e2e/journeys.spec.js:179:1 › mobile collection, menu, product and quiz fit the viewport (2.2s)
+
+  3 passed (13.7s)
