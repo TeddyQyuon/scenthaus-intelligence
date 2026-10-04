@@ -1,0 +1,37 @@
+# Deploy this Blueprint only after choosing a paid plan and supplying secrets.
+# Single API instance: scheduler and API share a persistent model disk.
+services:
+  - type: web
+    name: scenthaus-python-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: standard
+    healthCheckPath: /health
+    disk:
+      name: scenthaus-models
+      mountPath: /app/state
+      sizeGB: 2
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_EMAIL
+        value: admin@scenthaus.demo
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: ENVIRONMENT
+        value: production
+      - key: ARTIFACT_DIR
+        value: /app/state/artifacts
+      - key: MLFLOW_TRACKING_URI
+        value: sqlite:////app/state/mlflow.db
+      - key: BOOTSTRAP_DEMO
+        value: 'true'
+      - key: START_SCHEDULER
+        value: 'true'
+      - key: DEMO_MODE
+        value: 'true'

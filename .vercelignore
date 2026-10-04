@@ -1,0 +1,12 @@
+.env
+.venv/
+**/node_modules/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.env
+backend/mlflow.db*
+backend/mlruns/
+frontend/dist/
+frontend/test-results/
+reports/
