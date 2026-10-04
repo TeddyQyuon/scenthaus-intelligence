@@ -117,7 +117,7 @@ npx playwright install chromium
 npx playwright test
 ```
 
-The delivered evaluation JSON and training log contain actual run results. [Verification report](reports/verification.md) records which checks ran locally and which remain environment-dependent. GitHub Actions starts **native PostgreSQL 16**, regenerates/trains, runs the API/ML suite, builds the frontend, and runs browser journeys. The workflow is configured but has not been executed on GitHub from this workspace.
+The delivered evaluation JSON and training log contain actual run results. [Verification report](reports/verification.md) records which checks ran locally and which remain environment-dependent. GitHub Actions starts **native PostgreSQL 16**, regenerates/trains, runs the API/ML suite, builds the frontend, and runs browser journeys. See the repository's [Actions page](https://github.com/TeddyQyuon/scenthaus-intelligence/actions) for cloud run status; a configured workflow alone does not establish that checks passed.
 
 ## API
 
