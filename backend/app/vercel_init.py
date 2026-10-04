@@ -10,7 +10,7 @@ from pathlib import Path
 import os
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import text
+from sqlalchemy import text, create_engine
 from .database import engine, SessionLocal
 from .models import ModelRun, ForecastSnapshot
 from .seed import seed
@@ -28,9 +28,15 @@ def initialize():
         raise RuntimeError(
             "A verified trained model bundle must be committed before deployment"
         )
-    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as lock:
+    # A session-level lock needs a direct connection, never a transaction pooler.
+    direct_url = os.environ.get("DATABASE_URL_UNPOOLED", "")
+    if direct_url.startswith(("postgres://", "postgresql://")):
+        direct_url = "postgresql+psycopg://" + direct_url.split("://", 1)[1]
+    lock_engine = create_engine(direct_url) if direct_url else engine
+    with lock_engine.connect().execution_options(isolation_level="AUTOCOMMIT") as lock:
         lock.execute(text("SELECT pg_advisory_lock(736284105)"))
         try:
+            print("Migrating dedicated PostgreSQL schema", flush=True)
             config = Config(str(root / "alembic.ini"))
             config.set_main_option("script_location", str(root / "alembic"))
             command.upgrade(config, "head")
