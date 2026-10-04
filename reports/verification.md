@@ -15,7 +15,7 @@ Verification was performed against the restored project and the bundled trained 
 | Native PostgreSQL concurrency | Test supplied and enabled in CI, not executed locally. |
 | Docker Compose execution | Configuration supplied and inspected. Docker daemon unavailable here, so no container-run claim. |
 | GitHub Actions | Native PostgreSQL workflow supplied; no remote workflow-run claim. |
-| Public deployment | Not published. Requires configured Python hosting/database credentials and a concrete Vercel API rewrite. |
+| Public deployment | Vercel project linked. Cloud frontend build passed; Python initialization is waiting for a dedicated PostgreSQL DATABASE_URL. No working public app is claimed. |
 
 The local integration database used PGlite, PostgreSQL compiled to WASM with a PostgreSQL protocol socket adapter. It verifies SQL/schema/API mechanics but does not establish native PostgreSQL concurrency behaviour. The CI service and Compose configuration use native PostgreSQL 16. A specific same-user concurrent checkout test is skipped unless NATIVE_POSTGRES_TESTS=1.
 
@@ -25,4 +25,4 @@ The browser found a React effect returning the new browser scroll result during 
 
 The benchmark reports in-process request latency with no network-region delay and one client. Static similarities are precomputed and cached; personalized state and stock remain live. Full monitoring is process-local and requires a metrics sink for multi-instance production.
 
-The Vercel deployment revision also verifies `/api` mounting, production/preview CSRF origins, PostgreSQL URL normalization and unauthenticated cron rejection. Serving no longer imports the training forecast stack. Hosted database provisioning and production checks are still blocked by Vercel browser authentication; deployment.md records that state.
+The Vercel deployment revision also verifies `/api` mounting, production/preview CSRF origins, PostgreSQL URL normalization and unauthenticated cron rejection. Serving no longer imports the training forecast stack. Hosted database provisioning is paused at Neon's terms-acceptance step; deployment.md records that state. The first GitHub Actions run stopped during container initialization before any tests, due to health-command quoting. The command was corrected to double quotes and a new run started; consult the repository Actions page for the current result. A green CI run is not yet claimed in this report.
