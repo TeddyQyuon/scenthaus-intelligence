@@ -1,0 +1,110 @@
+{
+  "origin": "https://scenthaus-intelligence.vercel.app",
+  "verified_at_utc": "2026-10-04T11:34:30Z",
+  "status": "passed",
+  "checks": [
+    {
+      "method": "GET",
+      "path": "/health",
+      "status": 200,
+      "elapsed_ms": 7517
+    },
+    {
+      "method": "GET",
+      "path": "/admin/overview",
+      "status": 401,
+      "elapsed_ms": 7435
+    },
+    {
+      "method": "GET",
+      "path": "/auth/session",
+      "status": 200,
+      "elapsed_ms": 6920
+    },
+    {
+      "method": "GET",
+      "path": "/forecast/sku?sku=SH-001-50&horizon=8",
+      "status": 403,
+      "elapsed_ms": 7007
+    },
+    {
+      "method": "GET",
+      "path": "/internal/maintenance",
+      "status": 401,
+      "elapsed_ms": 9668
+    },
+    {
+      "method": "POST",
+      "path": "/auth/login",
+      "status": 200,
+      "elapsed_ms": 8301
+    },
+    {
+      "method": "GET",
+      "path": "/admin/overview",
+      "status": 200,
+      "elapsed_ms": 10584
+    },
+    {
+      "method": "GET",
+      "path": "/forecast/sku?sku=SH-001-50&horizon=8",
+      "status": 200,
+      "elapsed_ms": 7224
+    },
+    {
+      "method": "GET",
+      "path": "/forecast/summary?horizon=12",
+      "status": 200,
+      "elapsed_ms": 8689
+    },
+    {
+      "method": "GET",
+      "path": "/admin/inventory",
+      "status": 200,
+      "elapsed_ms": 7113
+    },
+    {
+      "method": "GET",
+      "path": "/admin/evaluation",
+      "status": 200,
+      "elapsed_ms": 7027
+    },
+    {
+      "method": "GET",
+      "path": "/admin/models",
+      "status": 200,
+      "elapsed_ms": 6831
+    },
+    {
+      "method": "GET",
+      "path": "/admin/segments",
+      "status": 200,
+      "elapsed_ms": 7078
+    },
+    {
+      "method": "GET",
+      "path": "/admin/tracking",
+      "status": 200,
+      "elapsed_ms": 7435
+    },
+    {
+      "method": "GET",
+      "path": "/admin/monitor",
+      "status": 200,
+      "elapsed_ms": 6936
+    },
+    {
+      "method": "GET",
+      "path": "/admin/export",
+      "status": 200,
+      "elapsed_ms": 9105
+    },
+    {
+      "method": "POST",
+      "path": "/auth/logout",
+      "status": 200,
+      "elapsed_ms": 7050
+    }
+  ],
+  "limits": "Smoke checks are not a concurrent load test; historic orders are simulated."
+}

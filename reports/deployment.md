@@ -1,11 +1,19 @@
-# Hosting status
+# Hosting evidence
 
-Requested platform: Vercel, for both React/Vite and Python FastAPI. PostgreSQL remains a dedicated managed database.
+Verified on 4 October 2026. Historical sales/users are simulated; demo checkout collects no payment.
 
-- Complete source committed to main: https://github.com/TeddyQyuon/scenthaus-intelligence
-- Root Vercel Services configuration, mounted Python entrypoint, runtime dependency manifest and cloud initialization supplied.
-- Daily authenticated Vercel maintenance and an opt-in weekly GitHub training workflow supplied.
-- Vercel project `scenthaus-intelligence` is linked to GitHub in the Qyuon team. Cloud builds successfully build the React frontend and install Python runtime dependencies, then stop with `Set the dedicated cloud PostgreSQL DATABASE_URL before deploying SCENTHAUS`.
-- The cloud Vercel session is signed in. Dedicated Neon PostgreSQL provisioning is paused at the Marketplace **Accept and Create** step, pending user confirmation of Vercel/Neon terms and the stated account-data sharing. No agreement has been accepted and no paid database plan selected.
-- The portfolio case study is published at https://teddy-qyuon-portfolio.vercel.app/projects/scenthaus-intelligence with a source link and deployment-pending label. Portfolio commit `34e11b8` was verified READY on Vercel and in the production browser.
-- No successful working public SCENTHAUS deployment is claimed. Portfolio demo URLs must remain absent until verified.
+- Live application: https://scenthaus-intelligence.vercel.app/
+- Source: https://github.com/TeddyQyuon/scenthaus-intelligence
+- Portfolio case study: https://teddy-qyuon-portfolio.vercel.app/projects/scenthaus-intelligence
+- Application revision verified in production: `2cced1a436251a9b42c012315a17766c1ede6903`; Vercel deployment `dpl_4wgqRid4dTWrQE6ytk9eRcVNHu9e` was READY. Later documentation/calendar commits do not change the shopping flow.
+- React/Vite and Python FastAPI share one Vercel Services project and HTTPS origin. Python functions run in Singapore (`sin1`). Docker is not used for hosting.
+- Dedicated `scenthaus-postgres` Neon database: Free plan, Singapore, Neon Auth disabled, connected to this project's production environment only. The user approved Marketplace terms before creation. Preview deployments have no production database credentials.
+- Runtime secrets are encrypted project variables; database connection variables are sensitive. They are absent from source control. Initialization uses a direct connection for its session advisory lock and a pooled connection for application requests.
+- First initialization loaded 36 products, 108 SKUs, 2,000 fictional customers, 12,139 simulated orders and 90,495 events. Bulk insertion retained the original data fingerprint. A subsequent build logged `Catalogue exists; seed is idempotent.` and preserved persisted shopping state.
+- The bundled model is checksum verified. `/api/health` returned `status=ok`, `models_ready=true`, `demo_mode=true`.
+- Production cloud-browser checks passed: homepage and bottle images, catalogue/product detail, wishlist after reload, quiz matches, selected-size bag after reload, a saved demo order with inventory update, consent on/off persistence, and guest admin gate.
+- [Production API smoke evidence](production-api-smoke.json): 17 checks passed, covering session/CSRF admin sign-in, SKU and aggregate forecasts, inventory, segments, evaluation, model versions, forecast tracking, monitoring, CSV export and logout. Missing session, guest role and unauthenticated maintenance returned their expected 401/403 responses.
+- Vercel runtime log inspection found no 5xx entries in the verification window. This is a smoke check, not a capacity, uptime or production-latency guarantee.
+- [GitHub CI run 37198738709](https://github.com/TeddyQyuon/scenthaus-intelligence/actions/runs/37198738709) passed native PostgreSQL 16 training/tests and browser journeys for the verified application revision.
+
+Daily authenticated Vercel maintenance is configured at 04:00 Singapore. No completed scheduled-cron invocation is claimed at delivery time. Weekly model training is supplied in `retrain.yml`, but remains **disabled**: automatic approval review blocked storing the production database URL as `SCENTHAUS_DATABASE_URL` in this repository's encrypted Actions secrets because it expands credential access to workflows and collaborators. Enabling it requires the owner's explicit approval of that destination and scope. No production database credential was saved to GitHub.
