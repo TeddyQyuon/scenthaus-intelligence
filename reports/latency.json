@@ -1,0 +1,15 @@
+{
+  "scope": "Warm in-process TestClient with local PGlite PostgreSQL-WASM, no internet latency or load concurrency",
+  "results": {
+    "/recommend/similar?product_id=1": {
+      "samples": 40,
+      "p50_ms": 11.367986000095698,
+      "p95_ms": 14.588033799600442
+    },
+    "/recommend/user": {
+      "samples": 40,
+      "p50_ms": 11.194540000133202,
+      "p95_ms": 14.568073199848179
+    }
+  }
+}

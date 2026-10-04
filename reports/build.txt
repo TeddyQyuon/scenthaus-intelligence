@@ -1,0 +1,15 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> scenthaus-storefront@1.0.0 build
+> vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 2236 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.61 kB │ gzip:   0.39 kB
+dist/assets/index-CZr2jzHE.css   26.23 kB │ gzip:   6.98 kB
+dist/assets/index-TDQdZi6p.js   353.30 kB │ gzip: 115.11 kB
+dist/assets/Admin-DWuBzhRv.js   410.68 kB │ gzip: 119.60 kB
+✓ built in 5.18s
