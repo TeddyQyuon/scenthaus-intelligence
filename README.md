@@ -1,5 +1,7 @@
 # SCENTHAUS Intelligence
 
+[Live storefront](https://scenthaus-intelligence.vercel.app/) · [Portfolio case study](https://teddy-qyuon-portfolio.vercel.app/projects/scenthaus-intelligence) · [Passed CI run](https://github.com/TeddyQyuon/scenthaus-intelligence/actions/runs/37198738709)
+
 A fragrance storefront and machine-learning pipeline built with **React + Vite + Tailwind (JavaScript/JSX), Python FastAPI and PostgreSQL**. No Next.js. The shopping experience includes a fragrance quiz, product discovery, wishlist, persistent bag, account preferences and a protected business intelligence dashboard.
 
 **All historical customers and orders are simulated.** Products, fragrance houses and bottle imagery are fictional/illustrative. This project demonstrates a reproducible pipeline and modelling methods; it does not establish real commercial uplift or forecast accuracy on real fragrance demand. Demo checkout saves an order and updates inventory without collecting payment.
@@ -16,6 +18,7 @@ Deploy this repository **from its root**, with React/Vite and FastAPI in the sam
 | Environment variable | Value |
 | --- | --- |
 | DATABASE_URL | Dedicated PostgreSQL connection URL with `sslmode=require`; a pooled Neon URL works. |
+| DATABASE_URL_UNPOOLED | Direct PostgreSQL URL for the initialization lock when DATABASE_URL uses a transaction pooler; injected by the Neon integration. |
 | ENVIRONMENT | `production` |
 | SECRET_KEY | Unique random secret of at least 32 characters. |
 | ADMIN_EMAIL | Your admin email, default `admin@scenthaus.demo`. |
@@ -117,7 +120,7 @@ npx playwright install chromium
 npx playwright test
 ```
 
-The delivered evaluation JSON and training log contain actual run results. [Verification report](reports/verification.md) records which checks ran locally and which remain environment-dependent. GitHub Actions starts **native PostgreSQL 16**, regenerates/trains, runs the API/ML suite, builds the frontend, and runs browser journeys. See the repository's [Actions page](https://github.com/TeddyQyuon/scenthaus-intelligence/actions) for cloud run status; a configured workflow alone does not establish that checks passed.
+The delivered evaluation JSON and training log contain actual run results. [Verification report](reports/verification.md) separates local, CI and live evidence. [GitHub CI run 37198738709](https://github.com/TeddyQyuon/scenthaus-intelligence/actions/runs/37198738709) passed **30 Python tests against native PostgreSQL 16**, including concurrent checkout, **three Playwright journeys**, and the frontend build. It regenerates and trains the simulated dataset before testing. Production browser checks passed for the homepage, wishlist/cart reloads, quiz, demo checkout, consent withdrawal and guest admin gate. [Production API smoke results](reports/production-api-smoke.json) record 17 successful checks, including authenticated forecasting, inventory, exports and model health. These smoke checks do not establish concurrent production capacity or an internet latency under 200 ms.
 
 ## API
 
@@ -146,6 +149,6 @@ Catalogue, wishlist, bag, orders, consent/export and admin endpoints appear in d
 
 - [FastAPI](https://fastapi.tiangolo.com/), [SQLAlchemy](https://docs.sqlalchemy.org/en/20/orm/quickstart.html), [Vite](https://vite.dev/guide/)
 - [TF-IDF](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html), [LightGBM](https://lightgbm.readthedocs.io/en/stable/Python-API.html), [MLflow tracking](https://mlflow.org/docs/latest/ml/tracking/)
-- [Singapore 2026 holidays, MOM](https://www.mom.gov.sg/newsroom/press-releases/2025/0616-public-holidays-for-2026). Calendar dates currently cover 2024–2026; unknown future years fail until verified dates are added.
+- [Singapore 2026 holidays, MOM](https://www.mom.gov.sg/newsroom/press-releases/2025/0616-public-holidays-for-2026) and [2027 holidays, MOM](https://www.mom.gov.sg/newsroom/press-releases/2026/0618-public-holidays-for-2027). Calendar dates cover 2024–2027; unknown future years fail until verified dates are added.
 - [Singapore Model AI Governance Framework, IMDA](https://www.imda.gov.sg/-/media/imda/files/infocomm-media-landscape/sg-digital/tech-pillars/artificial-intelligence/second-edition-of-the-model-ai-governance-framework-22jan.pdf)
 - [Vercel Vite deployment](https://vercel.com/docs/frameworks/frontend/vite), [external rewrites](https://vercel.com/docs/routing/rewrites), [Render Blueprint](https://render.com/docs/blueprint-spec), [Compose startup order](https://docs.docker.com/compose/how-tos/startup-order/)
