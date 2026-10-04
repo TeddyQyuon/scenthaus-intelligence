@@ -25,6 +25,7 @@
   },
   "rewrites": [
     {"source": "/api/:path*", "destination": {"service": "api"}},
+    {"source": "/", "destination": {"service": "storefront", "path": "/index.html"}},
     {"source": "/:path*", "destination": {"service": "storefront"}}
   ],
   "crons": [{"path": "/api/internal/maintenance", "schedule": "0 20 * * *"}]
