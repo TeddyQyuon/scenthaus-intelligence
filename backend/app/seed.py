@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timedelta
 from uuid import uuid5, NAMESPACE_URL
 import numpy as np
-from sqlalchemy import select, func
+from sqlalchemy import select, func, insert
 from argon2 import PasswordHasher
 from .database import SessionLocal
 from .models import User, Product, Variant, Order, OrderItem, Event, Wishlist
@@ -15,6 +15,12 @@ from .config import settings
 
 def stable(s):
     return str(uuid5(NAMESPACE_URL, "scenthaus/" + s))
+
+
+def insert_rows(db, model, rows):
+    """Bound SQL batches avoid one network round trip per simulated order."""
+    for offset in range(0, len(rows), 1000):
+        db.execute(insert(model.__table__).values(rows[offset : offset + 1000]))
 
 
 def seed():
@@ -58,6 +64,7 @@ def seed():
         wishset = set()
         order_count = 0
         event_count = 0
+        order_rows, line_rows, event_rows, wishlist_rows = [], [], [], []
         for week in range(104):
             start = datetime(2024, 9, 30) + timedelta(weeks=week)
             calendar = features(start)
@@ -101,15 +108,15 @@ def seed():
                     )
                     total += qty * price
                     lines.append(
-                        OrderItem(
+                        dict(
                             order_id=order_id,
                             variant_id=variant.id,
                             quantity=qty,
                             unit_price=price,
                         )
                     )
-                db.add(
-                    Order(
+                order_rows.append(
+                    dict(
                         id=order_id,
                         user_id=users[u].id,
                         created_at=when,
@@ -118,12 +125,11 @@ def seed():
                         simulated=True,
                     )
                 )
-                db.flush()
-                db.add_all(lines)
+                line_rows.extend(lines)
                 for pi in chosen:
                     for et in ["view", "add_to_cart", "purchase"]:
-                        db.add(
-                            Event(
+                        event_rows.append(
+                            dict(
                                 user_id=users[u].id,
                                 product_id=int(pi) + 1,
                                 event_type=et,
@@ -133,15 +139,15 @@ def seed():
                         event_count += 1
                     pair = (u, int(pi) + 1)
                     if rng.random() < 0.28 and pair not in wishset:
-                        db.add(
-                            Wishlist(
+                        wishlist_rows.append(
+                            dict(
                                 user_id=users[u].id, product_id=pair[1], created_at=when
                             )
                         )
                         wishset.add(pair)
                 for pi in rng.choice(32, size=int(rng.integers(2, 6)), replace=False):
-                    db.add(
-                        Event(
+                    event_rows.append(
+                        dict(
                             user_id=users[u].id,
                             product_id=int(pi) + 1,
                             event_type="view",
@@ -150,8 +156,14 @@ def seed():
                     )
                     event_count += 1
                 order_count += 1
-            if week % 8 == 0:
-                db.flush()
+        for model, rows in [
+            (Order, order_rows),
+            (OrderItem, line_rows),
+            (Event, event_rows),
+            (Wishlist, wishlist_rows),
+        ]:
+            print(f"Initializing {model.__tablename__}: {len(rows)} rows", flush=True)
+            insert_rows(db, model, rows)
         db.commit()
         result = {
             "simulated": True,
