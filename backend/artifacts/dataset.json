@@ -1,0 +1,14 @@
+{
+  "simulated": true,
+  "users": 2000,
+  "orders": 12139,
+  "events": 90495,
+  "weeks": 104,
+  "products": 36,
+  "skus": 108,
+  "seed": 42,
+  "period": [
+    "2024-09-30",
+    "2026-09-27"
+  ]
+}
