@@ -45,7 +45,13 @@ class Product(Base):
     launch_date = Column(Date, nullable=False)
     pinned = Column(Boolean, default=False, nullable=False)
     hidden = Column(Boolean, default=False, nullable=False)
-    __table_args__ = (CheckConstraint("concentration IN ('EDT','EDP','Parfum')"),)
+    image_path = Column(String(500))
+    source_metadata = Column(JSON)
+    __table_args__ = (
+        CheckConstraint(
+            "concentration IN ('EDT','EDP','Parfum','Cologne','Unverified')"
+        ),
+    )
 
 
 class Variant(Base):
@@ -73,6 +79,14 @@ class User(Base):
     consent = Column(Boolean, default=False, nullable=False)
     simulated = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=now, nullable=False)
+    quiz_profile = Column(JSON)
+
+
+class StockWeek(Base):
+    __tablename__ = "stock_weeks"
+    variant_id = Column(Integer, ForeignKey("variants.id"), primary_key=True)
+    week = Column(Date, primary_key=True)
+    in_stock = Column(Boolean, nullable=False)
 
 
 class Session(Base):

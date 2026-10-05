@@ -23,7 +23,7 @@ Goal: a monorepo that runs end to end with empty features.
 Done when: docker compose up serves the frontend and /health,
 and tests + lint pass.
 
-[ ] PHASE 1: DATA
+[x] PHASE 1: DATA
 Goal: realistic simulated data in Postgres + event logging.
 - Tables: products, users (with quiz_profile), events, orders,
   order_items, stock
