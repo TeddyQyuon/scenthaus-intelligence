@@ -1,0 +1,21 @@
+name: Preserve verified forecasting phase
+on:
+  push:
+    branches: [restore-workspace]
+    paths: [phase-5.bundle, .github/workflows/publish-phase-5.yml]
+permissions:
+  contents: write
+jobs:
+  preserve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Restore and fast-forward the verified phase commit
+        run: |
+          set -euo pipefail
+          git fetch origin complete-phases-real-catalog
+          git fetch ./phase-5.bundle refs/heads/complete-phases-real-catalog:refs/remotes/recovered/phase5
+          test "$(git rev-parse refs/remotes/recovered/phase5)" = 'bdc7653b6ccc12f8bea398d56c32adec0e9dcd47'
+          git merge-base --is-ancestor origin/complete-phases-real-catalog refs/remotes/recovered/phase5
+          git push origin refs/remotes/recovered/phase5:refs/heads/complete-phases-real-catalog
