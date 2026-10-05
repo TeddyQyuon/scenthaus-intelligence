@@ -1,0 +1,68 @@
+name: Verify and preserve tracked model phase
+on:
+  push:
+    branches: [restore-workspace]
+    paths: [phase-6.bundle, .github/workflows/verify-phase-6.yml]
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/scenthaus
+      ADMIN_PASSWORD: ci-only-strong-password-12345
+      SECRET_KEY: ci-only-simulated-fixture-key-at-least-32-characters
+      PYTHONPATH: backend:.
+      HF_HOME: data/hf-cache
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+      NATIVE_POSTGRES_TESTS: '1'
+      MLFLOW_DISABLE_AGENT_HINT: '1'
+      MLFLOW_ENABLE_TELEMETRY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Recover original phase history
+        run: |
+          cp phase-6.bundle "$RUNNER_TEMP/phase-6.bundle"
+          git fetch origin complete-phases-real-catalog
+          git fetch "$RUNNER_TEMP/phase-6.bundle" refs/heads/complete-phases-real-catalog:refs/remotes/recovered/phase6
+          test "$(git rev-parse refs/remotes/recovered/phase6)" = '215eb33fa87382f2f822a3f04cc9d7bfc6c7e7c1'
+          git merge-base --is-ancestor origin/complete-phases-real-catalog refs/remotes/recovered/phase6
+          git checkout --detach refs/remotes/recovered/phase6
+      - run: python -m pip install --extra-index-url https://download.pytorch.org/whl/cpu -r backend/requirements-linux-reference.txt
+      - name: Native temporary PostgreSQL
+        run: |
+          sudo systemctl start postgresql
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres createdb scenthaus
+          cd backend && alembic upgrade head
+      - run: python -m app.seed && python -m ml.train_all
+      - name: Full phase checks
+        run: |
+          pytest -q --junitxml=data/native-tests.xml
+          ruff check .
+          npm --prefix tools ci
+          node --test tools/tests/pg-lock.test.mjs
+          npm --prefix frontend ci
+          npm --prefix frontend test
+          npm --prefix frontend run build
+      - name: Preserve original scoped phase commit after checks
+        run: git push origin refs/remotes/recovered/phase6:refs/heads/complete-phases-real-catalog
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase-6-native-evidence
+          retention-days: 7
+          path: |
+            ml/reports/
+            data/native-tests.xml
+            data/models/
+            backend/artifacts/
+            backend/mlflow.db
+            backend/mlruns/
