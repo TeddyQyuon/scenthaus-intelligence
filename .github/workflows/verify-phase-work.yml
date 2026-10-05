@@ -1,0 +1,88 @@
+name: Verify recovered semantic-search phase
+on:
+  push:
+    branches: [restore-workspace]
+    paths: [phase-4-code.tar.gz, .github/workflows/verify-phase-work.yml]
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/scenthaus
+      ADMIN_PASSWORD: ci-only-strong-password-12345
+      SECRET_KEY: ci-only-secret-for-simulated-fixture-12345
+      PYTHONPATH: backend:.
+      HF_HOME: data/hf-cache
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Restore original phase commits and scoped search source
+        run: |
+          set -euo pipefail
+          echo '4e8969ee4daf028472bb41a0c4883cebeb4e8fffc4b40dfe8d6605382fa8c344  phase-4-code.tar.gz' | sha256sum -c -
+          cp phase-4-code.tar.gz "$RUNNER_TEMP/phase-4-code.tar.gz"
+          tar -xzf "$RUNNER_TEMP/phase-4-code.tar.gz" -C "$RUNNER_TEMP"
+          git fetch origin complete-phases-real-catalog
+          git fetch "$RUNNER_TEMP/phase-3.bundle" refs/heads/complete-phases-real-catalog:refs/remotes/recovered/phase3
+          test "$(git rev-parse --short refs/remotes/recovered/phase3)" = 'be947ea'
+          git checkout --detach refs/remotes/recovered/phase3
+          tar -xzf "$RUNNER_TEMP/phase-4-code.tar.gz" --exclude=phase-3.bundle -C .
+      - name: Install official CPU training and verification dependencies
+        run: |
+          python -m pip install torch==2.9.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r backend/requirements-training.txt
+      - name: Start temporary native PostgreSQL
+        run: |
+          sudo systemctl start postgresql
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres createdb scenthaus
+          cd backend && alembic upgrade head
+      - name: Reproduce data and cached models on the shared temporal split
+        run: |
+          python -m app.seed
+          python -m ml.baselines
+          python -m ml.recommender
+          python -m ml.publish_base
+          python -m ml.search
+      - name: Run phase checks
+        run: |
+          ruff format ml/tests/test_search.py
+          pytest ml/tests -q --junitxml=data/phase-4-tests.xml
+          ruff check .
+      - name: Commit phase only after checks pass
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('PLAN.md');p.write_text(p.read_text().replace('[ ] PHASE 4:', '[x] PHASE 4:'))
+          p=Path('README.md');p.write_text(p.read_text()+'\nPhase 4: actual MiniLM/BM25/RRF semantic search and live SQL price/size/gender/season filters. Sixty draft query labels require manual review. GitHub native PostgreSQL verification: 19 ML tests and ruff pass; comparison is in ml/reports/search.md. No new dependency beyond sentence-transformers.\n')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/app/main.py ml/search.py ml/configs/search.yaml ml/data/search_eval.json ml/tests/test_search.py ml/reports/search.md PLAN.md README.md
+          git commit -m 'phase 4: semantic search'
+          git push origin HEAD:refs/heads/complete-phases-real-catalog
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase-4-evidence
+          retention-days: 3
+          path: |
+            ml/reports/
+            data/phase-4-tests.xml
+            data/models/
+      - name: Prepare official dependency wheels for the restricted local workspace
+        run: |
+          mkdir -p "$RUNNER_TEMP/wheels"
+          python -m pip download --extra-index-url https://download.pytorch.org/whl/cpu -r backend/requirements-training.txt -d "$RUNNER_TEMP/wheels"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cpu-dependency-wheels
+          retention-days: 1
+          compression-level: 0
+          path: ${{ runner.temp }}/wheels/
