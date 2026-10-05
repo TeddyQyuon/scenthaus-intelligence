@@ -25,7 +25,7 @@ jobs:
       - name: Restore original phase commits and scoped search source
         run: |
           set -euo pipefail
-          echo '4e8969ee4daf028472bb41a0c4883cebeb4e8fffc4b40dfe8d6605382fa8c344  phase-4-code.tar.gz' | sha256sum -c -
+          echo 'bdb40d83af3ee0f103bcff74a4181ca0232f163a034b0d210506232f3dc5df83  phase-4-code.tar.gz' | sha256sum -c -
           cp phase-4-code.tar.gz "$RUNNER_TEMP/phase-4-code.tar.gz"
           tar -xzf "$RUNNER_TEMP/phase-4-code.tar.gz" -C "$RUNNER_TEMP"
           git fetch origin complete-phases-real-catalog
@@ -77,10 +77,12 @@ jobs:
             data/phase-4-tests.xml
             data/models/
       - name: Prepare official dependency wheels for the restricted local workspace
+        if: always()
         run: |
           mkdir -p "$RUNNER_TEMP/wheels"
           python -m pip download --extra-index-url https://download.pytorch.org/whl/cpu -r backend/requirements-training.txt -d "$RUNNER_TEMP/wheels"
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: cpu-dependency-wheels
           retention-days: 1
