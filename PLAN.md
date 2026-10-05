@@ -12,6 +12,8 @@ Tick [x] when a phase's Done-when checks pass.
 
 - Phase 3 warm latency is measured with TestClient + PGlite; it is not a network or Vercel guarantee. Collaborative filtering remains stronger than the trained two-tower model on the shared simulated test split.
 
+- Phase 5: after interrupted fixture recovery, local order lines were restored from the fixed-seed generator; 17,508 lines persist across restarts and all 16 phase checks pass. The original disappearance was not reproduced. Native PostgreSQL CI remains required for full-stack verification. DL intervals are quantiles; 95% bands are approximate residual extensions. Four-week backtests do not validate every 12-week horizon.
+
 ## Phases
 
 [x] PHASE 0: SCAFFOLD
@@ -91,7 +93,7 @@ Goal: natural-language search, compared honestly with BM25.
 Done when: ml/reports/search.md has the comparison, /search
 handles "fresh office scent under $150", and tests pass.
 
-[ ] PHASE 5: DL FORECASTING
+[x] PHASE 5: DL FORECASTING
 Goal: LSTM and N-BEATS forecasters, compared fairly vs Phase 2.
 - Weekly units per SKU and category; lookback and horizon
   in YAML

@@ -12,6 +12,19 @@ def publish() -> str:
     evaluation = json.loads((ARTIFACTS / "baselines.json").read_text())
     model, _, _ = fit(d["products"], d["orders"], d["wishes"], d["events"], d["end"])
     model["weights"] = evaluation["weights"]
+    forecast_path = ARTIFACTS / "forecast.json"
+    forecast = (
+        json.loads(forecast_path.read_text())
+        if forecast_path.exists()
+        else {
+            "series": [],
+            "inventory": [],
+            "tracking": [],
+            "metrics": {"pending": True},
+        }
+    )
+    if forecast_path.exists() and forecast["data_hash"] != d["data_hash"]:
+        raise ValueError("Forecast dataset differs; refit before publishing")
     version = (
         datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "-" + d["data_hash"][:8]
     )
@@ -23,7 +36,7 @@ def publish() -> str:
             "split": evaluation["split"],
             "weights": evaluation["weights"],
         },
-        "forecast": {"pending": True},
+        "forecast": forecast["metrics"],
         "experiments": {},
         "version": version,
     }
@@ -31,7 +44,7 @@ def publish() -> str:
         "version": version,
         "metrics": metrics,
         "recommender": model,
-        "forecast": {"series": [], "inventory": [], "tracking": [], "metrics": {}},
+        "forecast": forecast,
         "experiments": {},
         "torch_recommender": str(ARTIFACTS / "recommender"),
     }

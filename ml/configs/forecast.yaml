@@ -1,0 +1,20 @@
+seeds: [42, 43, 44]
+threads: 2
+lookback: 12
+horizon: 12
+quantiles: [0.1, 0.5, 0.9]
+epochs: 8
+patience: 2
+batch_size: 512
+learning_rate: 0.002
+weight_decay: 0.0001
+gradient_clip: 1.0
+hidden: 24
+id_dim: 4
+nbeats_width: 64
+nbeats_blocks: 2
+validation_origin: 52
+origins: [65, 69, 73]
+evaluation_horizon: 4
+lead_time_weeks: 2
+safety_z: 1.65
