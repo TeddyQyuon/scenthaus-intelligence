@@ -1,0 +1,101 @@
+name: Verify real catalog React flows
+on:
+  push:
+    branches: [restore-workspace]
+    paths: [phase-7-source.tar.gz, .github/workflows/verify-phase-7.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/scenthaus
+      ADMIN_PASSWORD: ci-only-strong-password-12345
+      SECRET_KEY: ci-only-simulated-fixture-key-at-least-32-characters
+      PYTHONPATH: backend:.
+      HF_HOME: data/hf-cache
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+      NATIVE_POSTGRES_TESTS: '1'
+      ALLOWED_ORIGINS: http://127.0.0.1:5173,http://localhost:5173
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Recover original phase history and scoped UI changes
+        run: |
+          cp phase-7-source.tar.gz /tmp/phase-7-source.tar.gz
+          git fetch ./phase-6.bundle complete-phases-real-catalog
+          git checkout -B complete-phases-real-catalog FETCH_HEAD
+          tar xzf /tmp/phase-7-source.tar.gz
+      - run: python -m pip install --extra-index-url https://download.pytorch.org/whl/cpu -r backend/requirements-linux-reference.txt
+      - name: Native fresh PostgreSQL fixture
+        run: |
+          sudo systemctl start postgresql
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres createdb scenthaus
+          cd backend && alembic upgrade head
+      - run: python -m app.seed
+      - name: Reuse verified training artifacts, not test data or production data
+        uses: actions/download-artifact@v4
+        with:
+          name: phase-6-native-evidence
+          run-id: 37341308924
+          github-token: ${{ github.token }}
+          path: /tmp/trained
+      - name: Register immutable release against matching fresh seed
+        run: |
+          mkdir -p data/models
+          cp -a /tmp/trained/data/models/. data/models/
+          python -m ml.publish_base
+      - run: pytest -q --junitxml=data/native-ui-tests.xml
+      - run: ruff check .
+      - run: npm --prefix tools ci && node --test tools/tests/pg-lock.test.mjs
+      - run: npm ci && npm run build
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - name: Start API and await readiness
+        run: |
+          uvicorn app.main:app --host 127.0.0.1 --port 8000 > data/ci-api.log 2>&1 &
+          python - <<'PY'
+          import time, urllib.request
+          for attempt in range(30):
+              try:
+                  urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=2)
+                  break
+              except OSError:
+                  time.sleep(1)
+          else:
+              raise SystemExit("API did not become ready")
+          PY
+      - run: npm test
+        working-directory: frontend
+      - name: Commit verified phase 7 and preserve original phase 6 history
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('PLAN.md')
+          p.write_text(p.read_text().replace('[ ] PHASE 7: REACT UI', '[x] PHASE 7: REACT UI'))
+          PY
+          git config user.name 'SCENTHAUS project automation'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/ci.yml backend/app/main.py backend/app/schemas.py backend/tests/test_api.py frontend README.md PLAN.md ml/reports/ui.md
+          git commit -m 'phase 7: React storefront and forecast dashboard'
+          git push origin HEAD:complete-phases-real-catalog
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase-7-browser-evidence
+          retention-days: 7
+          path: |
+            data/native-ui-tests.xml
+            data/ci-api.log
+            reports/
+            frontend/test-results/
+            ml/reports/ui.md
