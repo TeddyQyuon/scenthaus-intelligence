@@ -1,4 +1,5 @@
 import hashlib
+import json
 import pandas as pd
 from sqlalchemy import select
 from app.models import Product, Variant, Order, OrderItem, User, Wishlist, Event
@@ -97,11 +98,16 @@ def validate(products, variants, orders):
             warnings.append(f"Price outlier at {size}ml; reviewed, not deleted")
     if errors:
         raise ValueError("; ".join(errors))
-    fingerprint = hashlib.sha256(
-        pd.util.hash_pandas_object(
-            orders.sort_values(["order_id", "variant_id"]).astype(str), index=False
-        ).values.tobytes()
-    ).hexdigest()
+    # Product and SKU content changes invalidate trained assets too.
+    digest = hashlib.sha256()
+    for df, keys in [
+        (products, ["id"]),
+        (variants, ["id"]),
+        (orders, ["order_id", "variant_id"]),
+    ]:
+        for row in df.sort_values(keys).to_dict("records"):
+            digest.update(json.dumps(row, sort_keys=True, default=str).encode())
+    fingerprint = digest.hexdigest()
     return {
         "passed": True,
         "warnings": warnings,

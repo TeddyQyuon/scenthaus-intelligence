@@ -374,7 +374,9 @@ em {
 .product-image img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  padding: 20px;
+  background: #fff;
   transition: transform 0.35s;
 }
 .product-image a {
@@ -383,18 +385,6 @@ em {
 }
 .product-image:hover img {
   transform: scale(1.035);
-}
-.tone-fresh img {
-  filter: hue-rotate(44deg) saturate(0.45);
-}
-.tone-woody img {
-  filter: saturate(0.45) brightness(0.86);
-}
-.tone-floral img {
-  filter: hue-rotate(326deg) saturate(0.7) brightness(1.06);
-}
-.tone-amber img {
-  filter: saturate(0.85);
 }
 .heart {
   position: absolute;
@@ -639,7 +629,9 @@ footer > div:not(:first-child) > a {
 .detail-image img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: #fff;
+  padding: 30px;
 }
 .detail-image > span {
   position: absolute;

@@ -86,7 +86,7 @@ export function ProductCard({ product: p, rec }) {
         >
           <img
             src={p.image}
-            alt={`${p.name} — illustrative fragrance bottle`}
+            alt={`${p.name} by ${p.brand} — product photograph`}
             loading="lazy"
           />
         </Link>
@@ -113,7 +113,7 @@ export function ProductCard({ product: p, rec }) {
         </button>
       </div>
       <p className="metadata">
-        {p.category} · {p.concentration} · {p.notes.top.join(", ")}
+        {p.category} · {p.concentration} · {Object.values(p.notes).flat().slice(0, 3).join(", ")}
       </p>
       <p className="price">From {money(p.price_from)}</p>
       {p.why && (
@@ -209,7 +209,7 @@ function Layout() {
           <p className="metadata">
             A portfolio demonstration. Fictional scents,
             <br />
-            illustrative bottles and simulated sales.
+            real fragrance brands and sourced photographs. Prices, stock, customers and orders are simulated.
           </p>
         </div>
         <div>
@@ -254,7 +254,7 @@ function Home() {
     Promise.all([api.get("/products"), api.get("/recommend/user")])
       .then(([a, b]) => {
         if (active) {
-          setFeatured(a.data.products.slice(0, 4));
+          setFeatured(["Dior", "Yves Saint Laurent", "Tom Ford", "Creed"].map((brand) => a.data.products.find((p) => p.brand === brand)).filter(Boolean));
           setRec(b.data);
         }
       })
@@ -300,12 +300,12 @@ function Home() {
       <div className="houses">
         <span className="eyebrow">IN GOOD COMPANY</span>
         {[
-          "ATELIER 08",
-          "MAISON OBLIQUE",
-          "STUDIO SILLAGE",
-          "BOTANIQUE",
-          "NOCTURNE",
-          "COASTLINE",
+          "DIOR",
+          "CHANEL",
+          "YVES SAINT LAURENT",
+          "TOM FORD",
+          "CREED",
+          "LE LABO",
         ].map((h) => (
           <span key={h}>{h}</span>
         ))}
@@ -431,7 +431,7 @@ function Shop() {
   }
   return (
     <section className="section shop">
-      <p className="eyebrow">36 SCENTS. COUNTLESS POSSIBILITIES.</p>
+      <p className="eyebrow">150 SCENTS. 35 ICONIC BRANDS.</p>
       <h1>The collection.</h1>
       <p className="intro">Follow a note. Find a feeling. Make it yours.</p>
       <div className="search-field">
@@ -539,7 +539,7 @@ function Shop() {
         </div>
       )}
       <p className="metadata">
-        Bottle images are illustrative. Gender labels are catalogue descriptors;
+        Product photographs are sourced from manufacturers and retailers. Prices and stock are simulated. Gender labels are catalogue descriptors;
         every scent is for anyone.
       </p>
     </section>
@@ -608,7 +608,7 @@ function Product() {
       </div>
       <section className="product-detail">
         <div className={`detail-image tone-${p.category.toLowerCase()}`}>
-          <img src={p.image} alt={`${p.name}, illustrative bottle`} />
+          <img src={p.image} alt={`${p.name} by ${p.brand}, product photograph`} />
           <span>SCENTHAUS · {p.category.toUpperCase()} COLLECTION</span>
         </div>
         <div className="detail-copy">
@@ -662,16 +662,16 @@ function Product() {
             </button>
           </div>
           <div className="note-pyramid">
-            {Object.entries(p.notes).map(([level, notes]) => (
+            {Object.entries(p.notes).filter(([, notes]) => notes.length).map(([level, notes]) => (
               <div key={level}>
-                <span className="eyebrow">{level} notes</span>
+                <span className="eyebrow">{level === "heart" && p.source ? "Sourced key notes" : `${level} notes`}</span>
                 <p>{notes.join(" · ")}</p>
               </div>
             ))}
           </div>
           <div className="detail-stats">
             <span>
-              Longevity <strong>{p.longevity} hours</strong>
+              Longevity <strong>{p.longevity > 0 ? `${p.longevity} hours` : "Not independently rated"}</strong>
             </span>
             <span>
               Sillage <strong>{p.sillage}</strong>
@@ -681,8 +681,9 @@ function Product() {
             </span>
           </div>
           <p className="metadata">
-            Fictional catalogue. Illustrative bottle. Demo orders only.
+            Real fragrance catalog. Demo prices, stock and orders. Source and style annotations shown below.
           </p>
+          {p.source && <p className="metadata"><a href={p.source.product_url} target="_blank" rel="noreferrer">View {p.source.source_kind} product source ↗</a><br />Season, accord and occasion labels are curated suggestions. Images remain the property of their respective owners.</p>}
         </div>
       </section>
       {sections.map((s) => (
@@ -1364,7 +1365,7 @@ function Intelligence() {
           <div className="notice">
             <strong>Simulated orders, not real commercial evidence.</strong>
             <p>
-              We generated 2,000 hidden customer profiles and 104 weeks of
+              We generated 2,000 hidden customer profiles and 78 weeks of
               orders. These results validate pipeline mechanics and methods.
               They do not prove effectiveness on real customers. Content may
               outperform the hybrid in this particular simulation.

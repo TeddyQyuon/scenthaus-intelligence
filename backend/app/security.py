@@ -1,4 +1,5 @@
 import hashlib, hmac, secrets
+import jwt
 from datetime import timedelta
 from fastapi import Depends, HTTPException, Request, Response
 from sqlalchemy import select
@@ -22,6 +23,13 @@ def csrf(token):
 
 def session_user(request, db):
     token = request.cookies.get("scenthaus_session", "")
+    if token:
+        try:
+            jwt.decode(
+                token, settings.secret_key, algorithms=["HS256"], audience="scenthaus"
+            )
+        except jwt.InvalidTokenError:
+            return None
     session = db.get(Session, digest(token)) if token else None
     return (
         db.get(User, session.user_id)
@@ -31,7 +39,18 @@ def session_user(request, db):
 
 
 def issue(user, response, db):
-    token = secrets.token_urlsafe(48)
+    token = jwt.encode(
+        {
+            "sub": user.id,
+            "role": user.role,
+            "aud": "scenthaus",
+            "jti": secrets.token_urlsafe(24),
+            "iat": now(),
+            "exp": now() + timedelta(days=7),
+        },
+        settings.secret_key,
+        algorithm="HS256",
+    )
     db.add(
         Session(
             token_hash=digest(token),

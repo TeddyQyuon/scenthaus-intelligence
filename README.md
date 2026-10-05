@@ -4,7 +4,7 @@
 
 A fragrance storefront and machine-learning pipeline built with **React + Vite + Tailwind (JavaScript/JSX), Python FastAPI and PostgreSQL**. No Next.js. The shopping experience includes a fragrance quiz, product discovery, wishlist, persistent bag, account preferences and a protected business intelligence dashboard.
 
-**All historical customers and orders are simulated.** The catalog is being replaced with real fragrance brands and sourced product photographs. Prices and stock remain simulated. This project demonstrates a reproducible pipeline and modelling methods; it does not establish real commercial uplift or forecast accuracy on real fragrance demand. Demo checkout saves an order and updates inventory without collecting payment.
+**All historical customers and orders are simulated.** The catalog contains 150 real fragrances across 35 brands, with product-specific manufacturer or retailer photographs and source links. Prices and stock remain simulated. This project demonstrates a reproducible pipeline and modelling methods; it does not establish real commercial uplift or forecast accuracy on real fragrance demand. Demo checkout saves an order and updates inventory without collecting payment.
 
 ## Host on Vercel
 
@@ -83,7 +83,7 @@ See [feature matrix](docs/feature-matrix.md) for individual A–G mappings, [arc
 
 ## Reproduced results
 
-Seed 42 produced **2,000 simulated customers, 12,139 orders, 90,495 events, 36 products and 108 SKUs**, from 2024-09-30 through 2026-09-27. Hidden taste vectors are used only to generate the data; they are not provided to the models. Four new products launch in the final week. Genuine test interactions therefore exclude products not available at the cutoff.
+Seed 42 produced **2,000 simulated customers, 13,563 orders, 84,663 events, 150 products, 35 brands and 297 SKUs**, from 2025-03-31 through 2026-09-27. Hidden taste vectors are used only to generate the data; they are not provided to the models. Four products enter the simulated catalog in the final week; this is not a claim about their actual launch dates. Genuine test interactions therefore exclude products not available at the cutoff.
 
 Recommendation evaluation uses the last eight weeks as test and the preceding eight as validation. It excludes previously purchased products from both ranking candidates and relevant targets, evaluates 504 users with novel held-out purchases, and uses 32 available candidate products. Weights are chosen on validation NDCG, never on the test set. The table evaluates rankers before serving filters/MMR.
 
@@ -156,3 +156,5 @@ Catalogue, wishlist, bag, orders, consent/export and admin endpoints appear in d
 ## Phased rebuild (no Docker)
 
 The React/Vite and FastAPI base has been recovered from the published repository. `PLAN.md` records freshly rerun phase checks. Development and Vercel hosting use native processes and managed PostgreSQL, as requested.
+
+Catalog details: real bottle sizes are taken from source variant metadata. Unknown concentrations are explicitly marked Unverified. Key notes are sourced without inventing a note pyramid. Longevity and sillage are unrated; season/occasion/accord suggestions are curated annotations. Nothing here authenticates a supplier or enables real payment collection.

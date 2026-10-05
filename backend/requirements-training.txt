@@ -1,0 +1,7 @@
+-r requirements.txt
+torch==2.9.0
+sentence-transformers==5.2.0
+mlflow==3.16.1
+pytest==9.0.2
+ruff==0.14.14
+httpx[socks]==0.28.1

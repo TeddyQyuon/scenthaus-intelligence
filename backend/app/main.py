@@ -118,7 +118,9 @@ def product_json(p, db, variants=None):
             "hidden",
         ]
     } | {
-        "image": "/images/product.png",
+        "image": p.image_path or "/images/product.png",
+        "source": p.source_metadata,
+        "simulated_commerce": settings.demo_mode,
         "variants": [
             {
                 "id": v.id,
