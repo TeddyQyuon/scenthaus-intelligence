@@ -1,0 +1,24 @@
+name: Restore verified phase commits
+on:
+  push:
+    branches: [restore-workspace]
+    paths: [scenthaus-phase-2.bundle, .github/workflows/restore-phase-work.yml]
+permissions:
+  contents: write
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify source history and push its original commits
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'a68b904e4185f13de17770e422289ca240a349dda08d94f96aca9938a65daaf3  scenthaus-phase-2.bundle' | sha256sum -c -
+          git bundle verify scenthaus-phase-2.bundle
+          git fetch "$PWD/scenthaus-phase-2.bundle" refs/heads/complete-phases-real-catalog:refs/remotes/recovered/phases
+          test "$(git rev-parse refs/remotes/recovered/phases)" = 'c94a76bbebe85988d68e3915da36dce6ebdb7348'
+          git push origin refs/remotes/recovered/phases:refs/heads/complete-phases-real-catalog
