@@ -1,0 +1,5 @@
+k: 10
+rrf_constant: 60
+query_cache_size: 128
+bm25_k1: 1.5
+bm25_b: 0.75
