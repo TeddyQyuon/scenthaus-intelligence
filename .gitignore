@@ -13,3 +13,14 @@ frontend/test-results/
 reports/*.png
 reports/*.log
 reports/browser-tests.json
+data/*
+!data/README.md
+backend/artifacts/
+ml/models/
+*.onnx
+*.pt
+*.npz
+*.npy
+*.db
+*.db-*
+hf-cache/
