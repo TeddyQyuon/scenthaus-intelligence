@@ -4,7 +4,7 @@
 
 A fragrance storefront and machine-learning pipeline built with **React + Vite + Tailwind (JavaScript/JSX), Python FastAPI and PostgreSQL**. No Next.js. The shopping experience includes a fragrance quiz, product discovery, wishlist, persistent bag, account preferences and a protected business intelligence dashboard.
 
-**All historical customers and orders are simulated.** Products, fragrance houses and bottle imagery are fictional/illustrative. This project demonstrates a reproducible pipeline and modelling methods; it does not establish real commercial uplift or forecast accuracy on real fragrance demand. Demo checkout saves an order and updates inventory without collecting payment.
+**All historical customers and orders are simulated.** The catalog is being replaced with real fragrance brands and sourced product photographs. Prices and stock remain simulated. This project demonstrates a reproducible pipeline and modelling methods; it does not establish real commercial uplift or forecast accuracy on real fragrance demand. Demo checkout saves an order and updates inventory without collecting payment.
 
 ## Host on Vercel
 
@@ -152,3 +152,7 @@ Catalogue, wishlist, bag, orders, consent/export and admin endpoints appear in d
 - [Singapore 2026 holidays, MOM](https://www.mom.gov.sg/newsroom/press-releases/2025/0616-public-holidays-for-2026) and [2027 holidays, MOM](https://www.mom.gov.sg/newsroom/press-releases/2026/0618-public-holidays-for-2027). Calendar dates cover 2024–2027; unknown future years fail until verified dates are added.
 - [Singapore Model AI Governance Framework, IMDA](https://www.imda.gov.sg/-/media/imda/files/infocomm-media-landscape/sg-digital/tech-pillars/artificial-intelligence/second-edition-of-the-model-ai-governance-framework-22jan.pdf)
 - [Vercel Vite deployment](https://vercel.com/docs/frameworks/frontend/vite), [external rewrites](https://vercel.com/docs/routing/rewrites), [Render Blueprint](https://render.com/docs/blueprint-spec), [Compose startup order](https://docs.docker.com/compose/how-tos/startup-order/)
+
+## Phased rebuild (no Docker)
+
+The React/Vite and FastAPI base has been recovered from the published repository. `PLAN.md` records freshly rerun phase checks. Development and Vercel hosting use native processes and managed PostgreSQL, as requested.

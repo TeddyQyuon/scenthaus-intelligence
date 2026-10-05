@@ -1,0 +1,9 @@
+seed: 42
+users: 2000
+weeks: 78
+start: '2025-03-31'
+quiz_fraction: 0.4
+stockout_probability: 0.025
+train_weeks: 52
+validation_weeks: 13
+test_weeks: 13
