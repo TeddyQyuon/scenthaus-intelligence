@@ -913,12 +913,37 @@ def intelligence():
 
 @app.get("/forecast/sku")
 def sku_forecast(
-    sku: str, horizon: int = Query(8, ge=4, le=12), user=Depends(admin_required)
+    sku: str,
+    horizon: int = Query(8, ge=4, le=12),
+    model: str = "lightgbm",
+    user=Depends(admin_required),
 ):
-    series = next((s for s in bundle()["forecast"]["series"] if s["sku"] == sku), None)
+    b = bundle()
+    available = b["forecast"].get("models", {})
+    if model not in available:
+        raise HTTPException(422, "Choose seasonal_naive, lightgbm, lstm or nbeats")
+    series = next(
+        (s for s in available[model] if s["sku"] == sku or str(s["id"]) == sku), None
+    )
     if not series:
         raise HTTPException(404, "SKU not found")
-    return series | {"forecast": series["forecast"][:horizon]}
+    return series | {
+        "forecast": series["forecast"][:horizon],
+        "model_version": b["version"],
+        "simulated_data": True,
+        "as_of": b["forecast"]["as_of"],
+        "interval_note": b["forecast"]["metrics"]["interval_note"],
+    }
+
+
+@app.get("/forecast/sku/{id}")
+def sku_forecast_by_id(
+    id: str,
+    horizon: int = Query(8, ge=4, le=12),
+    model: str = "lightgbm",
+    user=Depends(admin_required),
+):
+    return sku_forecast(id, horizon, model, user)
 
 
 @app.get("/forecast/summary")
@@ -926,9 +951,17 @@ def forecast_summary(
     group: str = "all",
     key: str | None = None,
     horizon: int = Query(8, ge=4, le=12),
+    model: str = "lightgbm",
     user=Depends(admin_required),
 ):
-    series = bundle()["forecast"]["series"]
+    b = bundle()
+    if model not in b["forecast"].get("models", {}):
+        raise HTTPException(422, "Choose seasonal_naive, lightgbm, lstm or nbeats")
+    if group not in ["all", "brand", "category"]:
+        raise HTTPException(422, "Choose all, brand or category")
+    series = b["forecast"]["models"][model]
+    if group == "category":
+        series = b["forecast"]["category_models"][model]
     chosen = (
         series
         if group == "all"
@@ -953,6 +986,13 @@ def forecast_summary(
             ]:
                 future[r["week"]][f] += r[f]
     return {
+        "model": model,
+        "model_version": b["version"],
+        "simulated_data": True,
+        "as_of": b["forecast"]["as_of"],
+        "aggregation": "direct category model"
+        if group == "category"
+        else "sum of SKU forecasts",
         "history": [{"week": w, **r} for w, r in sorted(hist.items())],
         "forecast": [{"week": w, **r} for w, r in sorted(future.items())],
         "skus": len(chosen),
