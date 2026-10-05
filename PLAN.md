@@ -10,6 +10,8 @@ Tick [x] when a phase's Done-when checks pass.
 - All hyperparameters are YAML, seed 42 unless a phase requires three seeds. Only time-based splits; no simulated data or trained weights committed.
 - Preserved original phase requirements below; all Docker checks mean equivalent native/Vercel process checks under the user's explicit override.
 
+- Phase 3 warm latency is measured with TestClient + PGlite; it is not a network or Vercel guarantee. Collaborative filtering remains stronger than the trained two-tower model on the shared simulated test split.
+
 ## Phases
 
 [x] PHASE 0: SCAFFOLD
@@ -55,7 +57,7 @@ Goal: baselines every DL model must beat, one shared harness.
 Done when: baselines.md reproduces from a fresh seed, and
 tests cover the split and every metric.
 
-[ ] PHASE 3: TWO-TOWER RECOMMENDER
+[x] PHASE 3: TWO-TOWER RECOMMENDER
 Goal: a PyTorch two-tower model, evaluated honestly vs Phase 2.
 - Training pairs from purchase/cart/wishlist/view, weighted
   purchase > cart > wishlist > view
