@@ -1,0 +1,19 @@
+seed: 42
+threads: 2
+model_name: sentence-transformers/all-MiniLM-L6-v2
+revision: c9745ed1d9f207416be6d2e6f8de32d1f16199bf
+embedding_dim: 32
+id_dim: 16
+hidden: 64
+recent_items: 10
+epochs: 10
+patience: 3
+batch_size: 128
+learning_rate: 0.003
+weight_decay: 0.0001
+temperature: 0.12
+id_dropout: 0.15
+negatives: 3
+negative_mixture: [0.4, 0.4, 0.2]
+event_weights: {purchase: 4, add_to_cart: 3, wishlist_add: 2, view: 0.5}
+ablations: [full, no_content, no_history, no_quiz, bpr]

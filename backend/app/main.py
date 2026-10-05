@@ -301,19 +301,35 @@ def results(
             relevance = scores(model, {pid: 1 for pid in cartpids})[2]
     else:
         relevance = scores(model, signal, quiz=quiz or profile)[2]
-        if experiment and user.consent and signal:
-            vector = np.zeros(len(model["ids"]))
-            for pid, value in signal.items():
-                if pid in model["index"]:
-                    vector[model["index"][pid]] = value
-            if experiment == "two_tower":
-                ex = b["experiments"]["two_tower"]
-                u = np.tanh(vector / (vector.sum() + 1e-8) @ ex["user_weights"])
-                items = np.tanh(model["embeddings"] @ ex["item_weights"])
-                relevance = scale((items @ u) + 1)
-            elif experiment == "item2vec":
-                emb = b["experiments"]["item2vec"]["embeddings"]
-                relevance = scale(cosine_similarity([vector @ emb], emb)[0] + 1)
+        if experiment and experiment != "two_tower":
+            raise HTTPException(422, "Supported experiment: two_tower")
+        if (experiment == "two_tower" and user.consent) or quiz:
+            from ml.rec_serving import score as tower_score
+
+            relevance = scale(
+                tower_score(
+                    user.id if user.consent else "",
+                    signal,
+                    quiz or profile,
+                    b["torch_recommender"],
+                    recent_ids=list(
+                        reversed(
+                            db.scalars(
+                                select(Event.product_id)
+                                .where(
+                                    Event.user_id == user.id,
+                                    Event.product_id.is_not(None),
+                                )
+                                .order_by(Event.created_at.desc())
+                                .limit(10)
+                            ).all()
+                        )
+                    )
+                    if user.consent
+                    else [],
+                )
+                + 1
+            )
     candidates = [model["index"][pid] for pid in rows if pid in model["index"]]
     brands = [
         next((p["brand"] for p in eligible if p["id"] == pid), "")
@@ -374,6 +390,7 @@ def results(
         "products": output,
         "recommendation_id": recid,
         "model_version": b["version"],
+        "ranking_model": "two_tower" if experiment == "two_tower" or quiz else "hybrid",
         "slot": kind,
         "match_note": "Cosine alignment with stated accords, not a probability of liking a scent.",
     }
