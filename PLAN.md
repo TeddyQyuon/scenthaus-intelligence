@@ -76,7 +76,7 @@ Done when: ml/reports/recommender.md compares two-tower,
 ablations and baselines (even if baselines win), endpoints
 answer in <100 ms from cached embeddings, and tests pass.
 
-[ ] PHASE 4: SEMANTIC SEARCH
+[x] PHASE 4: SEMANTIC SEARCH
 Goal: natural-language search, compared honestly with BM25.
 - Product text builder: name, brand, notes, description
 - sentence-transformers embeddings (all-MiniLM-L6-v2), cached

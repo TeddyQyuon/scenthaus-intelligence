@@ -1,0 +1,1049 @@
+{
+  "manual_review_required": true,
+  "label_source": "DRAFT catalog-rule labels; not independent human judgments. Review query intent and all positive/negative grades before claiming search quality.",
+  "queries": [
+    {
+      "id": 1,
+      "query": "Dior perfume",
+      "relevance": {
+        "1": 3,
+        "2": 3,
+        "3": 3,
+        "4": 3,
+        "5": 3,
+        "6": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 2,
+      "query": "Chanel perfume",
+      "relevance": {
+        "7": 3,
+        "8": 3,
+        "9": 3,
+        "10": 3,
+        "11": 3,
+        "12": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 3,
+      "query": "Yves Saint Laurent perfume",
+      "relevance": {
+        "13": 3,
+        "14": 3,
+        "15": 3,
+        "16": 3,
+        "17": 3,
+        "18": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 4,
+      "query": "Giorgio Armani perfume",
+      "relevance": {
+        "19": 3,
+        "20": 3,
+        "21": 3,
+        "22": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 5,
+      "query": "Tom Ford perfume",
+      "relevance": {
+        "23": 3,
+        "24": 3,
+        "25": 3,
+        "26": 3,
+        "27": 3,
+        "28": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 6,
+      "query": "Creed perfume",
+      "relevance": {
+        "29": 3,
+        "30": 3,
+        "31": 3,
+        "32": 3,
+        "33": 3,
+        "34": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 7,
+      "query": "Maison Francis Kurkdjian perfume",
+      "relevance": {
+        "35": 3,
+        "36": 3,
+        "37": 3,
+        "38": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 8,
+      "query": "Le Labo perfume",
+      "relevance": {
+        "39": 3,
+        "40": 3,
+        "41": 3,
+        "42": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 9,
+      "query": "Byredo perfume",
+      "relevance": {
+        "43": 3,
+        "44": 3,
+        "45": 3,
+        "46": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 10,
+      "query": "Jo Malone London perfume",
+      "relevance": {
+        "47": 3,
+        "48": 3,
+        "49": 3,
+        "50": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 11,
+      "query": "Maison Margiela perfume",
+      "relevance": {
+        "51": 3,
+        "52": 3,
+        "53": 3,
+        "54": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 12,
+      "query": "Prada perfume",
+      "relevance": {
+        "55": 3,
+        "56": 3,
+        "57": 3,
+        "58": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 13,
+      "query": "Gucci perfume",
+      "relevance": {
+        "59": 3,
+        "60": 3,
+        "61": 3,
+        "62": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 14,
+      "query": "Versace perfume",
+      "relevance": {
+        "63": 3,
+        "64": 3,
+        "65": 3,
+        "66": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 15,
+      "query": "Dolce & Gabbana perfume",
+      "relevance": {
+        "67": 3,
+        "68": 3,
+        "69": 3,
+        "70": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 16,
+      "query": "Valentino perfume",
+      "relevance": {
+        "71": 3,
+        "72": 3,
+        "73": 3,
+        "74": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 17,
+      "query": "Jean Paul Gaultier perfume",
+      "relevance": {
+        "75": 3,
+        "76": 3,
+        "77": 3,
+        "78": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 18,
+      "query": "Paco Rabanne perfume",
+      "relevance": {
+        "79": 3,
+        "80": 3,
+        "81": 3,
+        "82": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 19,
+      "query": "Herm\u00e8s perfume",
+      "relevance": {
+        "83": 3,
+        "84": 3,
+        "85": 3,
+        "86": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 20,
+      "query": "Lanc\u00f4me perfume",
+      "relevance": {
+        "87": 3,
+        "88": 3,
+        "89": 3,
+        "90": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 21,
+      "query": "Burberry perfume",
+      "relevance": {
+        "91": 3,
+        "92": 3,
+        "93": 3,
+        "94": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 22,
+      "query": "Calvin Klein perfume",
+      "relevance": {
+        "95": 3,
+        "96": 3,
+        "97": 3,
+        "98": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 23,
+      "query": "Hugo Boss perfume",
+      "relevance": {
+        "99": 3,
+        "100": 3,
+        "101": 3,
+        "102": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 24,
+      "query": "Carolina Herrera perfume",
+      "relevance": {
+        "103": 3,
+        "104": 3,
+        "105": 3,
+        "106": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 25,
+      "query": "Viktor & Rolf perfume",
+      "relevance": {
+        "107": 3,
+        "108": 3,
+        "109": 3,
+        "110": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 26,
+      "query": "Givenchy perfume",
+      "relevance": {
+        "111": 3,
+        "112": 3,
+        "113": 3,
+        "114": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 27,
+      "query": "Bvlgari perfume",
+      "relevance": {
+        "115": 3,
+        "116": 3,
+        "117": 3,
+        "118": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 28,
+      "query": "Montblanc perfume",
+      "relevance": {
+        "119": 3,
+        "120": 3,
+        "121": 3,
+        "122": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 29,
+      "query": "Azzaro perfume",
+      "relevance": {
+        "123": 3,
+        "124": 3,
+        "125": 3,
+        "126": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 30,
+      "query": "Narciso Rodriguez perfume",
+      "relevance": {
+        "127": 3,
+        "128": 3,
+        "129": 3,
+        "130": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 31,
+      "query": "Parfums de Marly perfume",
+      "relevance": {
+        "131": 3,
+        "132": 3,
+        "133": 3,
+        "134": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 32,
+      "query": "Diptyque perfume",
+      "relevance": {
+        "135": 3,
+        "136": 3,
+        "137": 3,
+        "138": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 33,
+      "query": "Penhaligon's perfume",
+      "relevance": {
+        "139": 3,
+        "140": 3,
+        "141": 3,
+        "142": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 34,
+      "query": "Initio Parfums Priv\u00e9s perfume",
+      "relevance": {
+        "143": 3,
+        "144": 3,
+        "145": 3,
+        "146": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 35,
+      "query": "Mugler perfume",
+      "relevance": {
+        "147": 3,
+        "148": 3,
+        "149": 3,
+        "150": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 36,
+      "query": "Dior Dior Sauvage Edp",
+      "relevance": {
+        "1": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 37,
+      "query": "Chanel Allure Homme Sport Eau de Toilette",
+      "relevance": {
+        "11": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 38,
+      "query": "Giorgio Armani Armani Code",
+      "relevance": {
+        "21": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 39,
+      "query": "Creed Silver Mountain Water",
+      "relevance": {
+        "31": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 40,
+      "query": "Le Labo Th\u00e9 Noir 29 Eau de Parfum",
+      "relevance": {
+        "41": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 41,
+      "query": "Maison Margiela Replica By The Fire Place",
+      "relevance": {
+        "51": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 42,
+      "query": "Gucci Gucci Flora Gorgeous Orchid",
+      "relevance": {
+        "61": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 43,
+      "query": "Valentino Born in Roma The Gold Donna",
+      "relevance": {
+        "71": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 44,
+      "query": "Paco Rabanne Paco Rabanne Olympea Parfum",
+      "relevance": {
+        "81": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 45,
+      "query": "Burberry Burberry Her",
+      "relevance": {
+        "91": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 46,
+      "query": "Hugo Boss Hugo Now",
+      "relevance": {
+        "101": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 47,
+      "query": "Givenchy Givenchy Gentleman Boisee",
+      "relevance": {
+        "111": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 48,
+      "query": "Montblanc Montblanc Explorer Platinum",
+      "relevance": {
+        "121": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 49,
+      "query": "Parfums de Marly Layton",
+      "relevance": {
+        "131": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 50,
+      "query": "Penhaligon's Penhaligon's Legacy of Petra",
+      "relevance": {
+        "141": 3
+      },
+      "reviewed": false
+    },
+    {
+      "id": 51,
+      "query": "fresh office scent under $150",
+      "relevance": {
+        "1": 2,
+        "2": 2,
+        "3": 2,
+        "4": 2,
+        "14": 2,
+        "15": 2,
+        "16": 2,
+        "17": 2,
+        "20": 2,
+        "21": 2,
+        "22": 2,
+        "51": 2,
+        "52": 2,
+        "53": 2,
+        "54": 2,
+        "56": 2,
+        "58": 2,
+        "59": 2,
+        "60": 2,
+        "63": 2,
+        "64": 2,
+        "65": 2,
+        "66": 2,
+        "68": 2,
+        "70": 2,
+        "73": 2,
+        "74": 2,
+        "77": 2,
+        "79": 2,
+        "80": 2,
+        "84": 2,
+        "87": 2,
+        "91": 2,
+        "92": 2,
+        "99": 2,
+        "100": 2,
+        "102": 2,
+        "103": 2,
+        "106": 2,
+        "107": 2,
+        "108": 2,
+        "109": 2,
+        "114": 2,
+        "115": 2,
+        "117": 2,
+        "119": 2,
+        "120": 2,
+        "121": 2,
+        "123": 2,
+        "126": 2,
+        "128": 2,
+        "130": 2,
+        "135": 2,
+        "137": 2,
+        "148": 2,
+        "149": 2
+      },
+      "reviewed": false
+    },
+    {
+      "id": 52,
+      "query": "warm vanilla perfume",
+      "relevance": {
+        "8": 2,
+        "9": 2,
+        "10": 2,
+        "12": 2,
+        "24": 2,
+        "30": 2,
+        "42": 2,
+        "132": 2
+      },
+      "reviewed": false
+    },
+    {
+      "id": 53,
+      "query": "woody evening scent",
+      "relevance": {
+        "7": 2,
+        "23": 2,
+        "25": 2,
+        "27": 2,
+        "33": 2,
+        "39": 2,
+        "40": 2,
+        "41": 2,
+        "131": 2
+      },
+      "reviewed": false
+    },
+    {
+      "id": 54,
+      "query": "rose floral perfume",
+      "relevance": {
+        "9": 2,
+        "10": 2,
+        "12": 2,
+        "30": 2,
+        "42": 2,
+        "132": 2
+      },
+      "reviewed": false
+    },
+    {
+      "id": 55,
+      "query": "citrus everyday fragrance",
+      "relevance": {
+        "1": 2,
+        "2": 2,
+        "3": 2,
+        "4": 2,
+        "5": 2,
+        "6": 2,
+        "11": 2,
+        "13": 2,
+        "14": 2,
+        "15": 2,
+        "16": 2,
+        "17": 2,
+        "18": 2,
+        "19": 2,
+        "20": 2,
+        "21": 2,
+        "22": 2,
+        "26": 2,
+        "28": 2,
+        "29": 2,
+        "31": 2,
+        "32": 2,
+        "34": 2,
+        "35": 2,
+        "36": 2,
+        "37": 2,
+        "38": 2,
+        "43": 2,
+        "44": 2,
+        "45": 2,
+        "46": 2,
+        "47": 2,
+        "48": 2,
+        "49": 2,
+        "50": 2,
+        "51": 2,
+        "52": 2,
+        "53": 2,
+        "54": 2,
+        "55": 2,
+        "56": 2,
+        "57": 2,
+        "58": 2,
+        "59": 2,
+        "60": 2,
+        "61": 2,
+        "62": 2,
+        "63": 2,
+        "64": 2,
+        "65": 2,
+        "66": 2,
+        "67": 2,
+        "68": 2,
+        "69": 2,
+        "70": 2,
+        "71": 2,
+        "72": 2,
+        "73": 2,
+        "74": 2,
+        "75": 2,
+        "76": 2,
+        "77": 2,
+        "78": 2,
+        "79": 2,
+        "80": 2,
+        "81": 2,
+        "82": 2,
+        "83": 2,
+        "84": 2,
+        "85": 2,
+        "86": 2,
+        "87": 2,
+        "88": 2,
+        "89": 2,
+        "90": 2,
+        "91": 2,
+        "92": 2,
+        "93": 2,
+        "94": 2,
+        "95": 2,
+        "96": 2,
+        "97": 2,
+        "98": 2,
+        "99": 2,
+        "100": 2,
+        "101": 2,
+        "102": 2,
+        "103": 2,
+        "104": 2,
+        "105": 2,
+        "106": 2,
+        "107": 2,
+        "108": 2,
+        "109": 2,
+        "110": 2,
+        "111": 2,
+        "112": 2,
+        "113": 2,
+        "114": 2,
+        "115": 2,
+        "116": 2,
+        "117": 2,
+        "118": 2,
+        "119": 2,
+        "120": 2,
+        "121": 2,
+        "122": 2,
+        "123": 2,
+        "124": 2,
+        "125": 2,
+        "126": 2,
+        "127": 2,
+        "128": 2,
+        "129": 2,
+        "130": 2,
+        "133": 2,
+        "134": 2,
+        "135": 2,
+        "136": 2,
+        "137": 2,
+        "138": 2,
+        "139": 2,
+        "140": 2,
+        "141": 2,
+        "142": 2,
+        "143": 2,
+        "144": 2,
+        "145": 2,
+        "146": 2,
+        "147": 2,
+        "148": 2,
+        "149": 2,
+        "150": 2
+      },
+      "reviewed": false
+    },
+    {
+      "id": 56,
+      "query": "sensual amber perfume",
+      "relevance": {
+        "8": 2,
+        "24": 2
+      },
+      "reviewed": false
+    },
+    {
+      "id": 57,
+      "query": "clean aquatic scent 100ml",
+      "relevance": {
+        "1": 2,
+        "3": 2,
+        "4": 2,
+        "5": 2,
+        "6": 2,
+        "7": 2,
+        "9": 2,
+        "10": 2,
+        "11": 2,
+        "12": 2,
+        "15": 2,
+        "16": 2,
+        "17": 2,
+        "19": 2,
+        "21": 2,
+        "23": 2,
+        "25": 2,
+        "26": 2,
+        "27": 2,
+        "28": 2,
+        "29": 2,
+        "30": 2,
+        "31": 2,
+        "32": 2,
+        "33": 2,
+        "34": 2,
+        "39": 2,
+        "40": 2,
+        "41": 2,
+        "42": 2,
+        "43": 2,
+        "44": 2,
+        "45": 2,
+        "46": 2,
+        "47": 2,
+        "48": 2,
+        "49": 2,
+        "50": 2,
+        "51": 2,
+        "52": 2,
+        "53": 2,
+        "54": 2,
+        "56": 2,
+        "57": 2,
+        "59": 2,
+        "61": 2,
+        "62": 2,
+        "63": 2,
+        "64": 2,
+        "65": 2,
+        "66": 2,
+        "67": 2,
+        "68": 2,
+        "69": 2,
+        "70": 2,
+        "71": 2,
+        "72": 2,
+        "73": 2,
+        "74": 2,
+        "79": 2,
+        "80": 2,
+        "82": 2,
+        "83": 2,
+        "84": 2,
+        "86": 2,
+        "88": 2,
+        "89": 2,
+        "90": 2,
+        "91": 2,
+        "92": 2,
+        "93": 2,
+        "94": 2,
+        "95": 2,
+        "96": 2,
+        "97": 2,
+        "98": 2,
+        "99": 2,
+        "102": 2,
+        "104": 2,
+        "105": 2,
+        "110": 2,
+        "111": 2,
+        "114": 2,
+        "119": 2,
+        "120": 2,
+        "121": 2,
+        "122": 2,
+        "123": 2,
+        "124": 2,
+        "125": 2,
+        "126": 2,
+        "127": 2,
+        "128": 2,
+        "129": 2,
+        "135": 2,
+        "137": 2,
+        "138": 2,
+        "139": 2,
+        "140": 2,
+        "141": 2,
+        "142": 2,
+        "147": 2,
+        "148": 2,
+        "149": 2
+      },
+      "reviewed": false
+    },
+    {
+      "id": 58,
+      "query": "summer citrus fragrance",
+      "relevance": {
+        "1": 2,
+        "2": 2,
+        "3": 2,
+        "4": 2,
+        "5": 2,
+        "6": 2,
+        "11": 2,
+        "13": 2,
+        "14": 2,
+        "15": 2,
+        "16": 2,
+        "17": 2,
+        "18": 2,
+        "19": 2,
+        "20": 2,
+        "21": 2,
+        "22": 2,
+        "26": 2,
+        "28": 2,
+        "29": 2,
+        "31": 2,
+        "32": 2,
+        "34": 2,
+        "35": 2,
+        "36": 2,
+        "37": 2,
+        "38": 2,
+        "43": 2,
+        "44": 2,
+        "45": 2,
+        "46": 2,
+        "47": 2,
+        "48": 2,
+        "49": 2,
+        "50": 2,
+        "51": 2,
+        "52": 2,
+        "53": 2,
+        "54": 2,
+        "55": 2,
+        "56": 2,
+        "57": 2,
+        "58": 2,
+        "59": 2,
+        "60": 2,
+        "61": 2,
+        "62": 2,
+        "63": 2,
+        "64": 2,
+        "65": 2,
+        "66": 2,
+        "67": 2,
+        "68": 2,
+        "69": 2,
+        "70": 2,
+        "71": 2,
+        "72": 2,
+        "73": 2,
+        "74": 2,
+        "75": 2,
+        "76": 2,
+        "77": 2,
+        "78": 2,
+        "79": 2,
+        "80": 2,
+        "81": 2,
+        "82": 2,
+        "83": 2,
+        "84": 2,
+        "85": 2,
+        "86": 2,
+        "87": 2,
+        "88": 2,
+        "89": 2,
+        "90": 2,
+        "91": 2,
+        "92": 2,
+        "93": 2,
+        "94": 2,
+        "95": 2,
+        "96": 2,
+        "97": 2,
+        "98": 2,
+        "99": 2,
+        "100": 2,
+        "101": 2,
+        "102": 2,
+        "103": 2,
+        "104": 2,
+        "105": 2,
+        "106": 2,
+        "107": 2,
+        "108": 2,
+        "109": 2,
+        "110": 2,
+        "111": 2,
+        "112": 2,
+        "113": 2,
+        "114": 2,
+        "115": 2,
+        "116": 2,
+        "117": 2,
+        "118": 2,
+        "119": 2,
+        "120": 2,
+        "121": 2,
+        "122": 2,
+        "123": 2,
+        "124": 2,
+        "125": 2,
+        "126": 2,
+        "127": 2,
+        "128": 2,
+        "129": 2,
+        "130": 2,
+        "133": 2,
+        "134": 2,
+        "135": 2,
+        "136": 2,
+        "137": 2,
+        "138": 2,
+        "139": 2,
+        "140": 2,
+        "141": 2,
+        "142": 2,
+        "143": 2,
+        "144": 2,
+        "145": 2,
+        "146": 2,
+        "147": 2,
+        "148": 2,
+        "149": 2,
+        "150": 2
+      },
+      "reviewed": false
+    },
+    {
+      "id": 59,
+      "query": "unisex woody scent below $400",
+      "relevance": {
+        "39": 2,
+        "40": 2,
+        "41": 2
+      },
+      "reviewed": false
+    },
+    {
+      "id": 60,
+      "query": "soft floral scent for women",
+      "relevance": {
+        "9": 2,
+        "10": 2,
+        "12": 2,
+        "132": 2
+      },
+      "reviewed": false
+    }
+  ]
+}

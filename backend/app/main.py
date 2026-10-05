@@ -881,28 +881,28 @@ def quiz(body: Quiz, user=Depends(user_required), db=Depends(get_db)):
 
 
 @app.get("/search")
-def natural_search(q: str = Query(min_length=2, max_length=200), db=Depends(get_db)):
-    model = bundle()["recommender"]
-    budgetmatch = re.search(r"(?:under|below|\$)\s*\$?\s*(\d+)", q.lower())
-    budget = float(budgetmatch.group(1)) if budgetmatch else None
-    size_match = re.search(r"(30|50|100)\s*ml", q.lower())
-    size = int(size_match.group(1)) if size_match else None
-    textq = q.lower()
-    for alias, term in [
-        ("clean", "fresh"),
-        ("work", "office"),
-        ("night", "evening"),
-        ("summer", "fresh citrus"),
-    ]:
-        textq = textq.replace(alias, term)
-    emb = model["svd"].transform(model["tfidf"].transform([textq]))
-    similarity = cosine_similarity(emb, model["embeddings"])[0]
-    eligible = available(db, budget=budget, size=size, in_stock=True)
-    eligible.sort(key=lambda p: similarity[model["index"][p["id"]]], reverse=True)
+def natural_search(
+    q: str = Query(min_length=2, max_length=200),
+    method: str = "hybrid",
+    db=Depends(get_db),
+):
+    from ml.search import parse_query, eligible_ids, load_index, rank
+    from ml.core import ARTIFACTS
+
+    b = bundle()
+    parsed = parse_query(q)
+    index = load_index(b.get("search_path", str(ARTIFACTS / "search")))
+    ranked = rank(index, parsed["text"], eligible_ids(db, parsed), method)[:12]
+    products = {
+        p.id: p for p in db.scalars(select(Product).where(Product.id.in_(ranked)))
+    }
     return {
-        "products": eligible[:12],
-        "parsed": {"budget": budget, "size_ml": size},
-        "method": "Learned TF-IDF/SVD latent embeddings, with explicit price and size parsing.",
+        "products": [product_json(products[pid], db) for pid in ranked],
+        "parsed": parsed,
+        "method": method,
+        "model_version": b["version"],
+        "simulated_data": True,
+        "manual_review_required": True,
     }
 
 
