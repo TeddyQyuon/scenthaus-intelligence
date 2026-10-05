@@ -42,7 +42,7 @@ Goal: realistic simulated data in Postgres + event logging.
 Done when: one command seeds the DB reproducibly (fixed seed),
 validation passes, and tests cover the generator and /events.
 
-[ ] PHASE 2: BASELINES + EVAL HARNESS
+[x] PHASE 2: BASELINES + EVAL HARNESS
 Goal: baselines every DL model must beat, one shared harness.
 - Time-based train/val/test split with a leakage test
 - Metrics: Recall@K, NDCG@K, MRR, coverage, diversity (recs);

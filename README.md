@@ -158,3 +158,5 @@ Catalogue, wishlist, bag, orders, consent/export and admin endpoints appear in d
 The React/Vite and FastAPI base has been recovered from the published repository. `PLAN.md` records freshly rerun phase checks. Development and Vercel hosting use native processes and managed PostgreSQL, as requested.
 
 Catalog details: real bottle sizes are taken from source variant metadata. Unknown concentrations are explicitly marked Unverified. Key notes are sourced without inventing a note pyramid. Longevity and sillage are unrated; season/occasion/accord suggestions are curated annotations. Nothing here authenticates a supplier or enables real payment collection.
+
+Rebuilt baseline evaluations: [`ml/reports/baselines.md`](ml/reports/baselines.md). Fresh seed reproduces the full dataset hash and all metrics; shared split is 52/13/13 weeks and K=10. CF NDCG@10 = 0.13731 versus popularity 0.10609. Category seasonal naive WAPE = 14.75%, LightGBM = 18.95% on rolling test origins; sparse SKU errors and poor aggregate interval calibration are reported. Older tables below describe the published fictional catalog and will be replaced when the rebuild is complete.
