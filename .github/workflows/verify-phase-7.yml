@@ -1,102 +1,116 @@
-name: Verify real catalog React flows
+name: Verify corrected real-catalog browser journeys
 on:
   push:
     branches: [restore-workspace]
-    paths: [phase-7-source.tar.gz, .github/workflows/verify-phase-7.yml]
-  workflow_dispatch:
+    paths: [.github/workflows/verify-phase-7.yml]
 permissions:
-  contents: write
+  contents: read
   actions: read
 jobs:
   verify:
+    if: github.repository == 'TeddyQyuon/scenthaus-intelligence'
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 15
     env:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/scenthaus
       ADMIN_PASSWORD: ci-only-strong-password-12345
+      ADMIN_EMAIL: admin@scenthaus.demo
       SECRET_KEY: ci-only-simulated-fixture-key-at-least-32-characters
       PYTHONPATH: backend:.
       HF_HOME: data/hf-cache
       OMP_NUM_THREADS: '2'
       OPENBLAS_NUM_THREADS: '2'
-      NATIVE_POSTGRES_TESTS: '1'
       ALLOWED_ORIGINS: http://127.0.0.1:5173,http://localhost:5173
+      TRAINED_SOURCE: ea567bfb52ec4019e585ebce23a4847e8dcc24bc
+      VERIFIED_SOURCE: 2e19249ec2030c4b19a1c73336899e1413b78695
     steps:
       - uses: actions/checkout@v4
-        with: {fetch-depth: 0}
-      - uses: actions/setup-python@v5
-        with: {python-version: '3.12'}
-      - uses: actions/setup-node@v4
-        with: {node-version: '22'}
-      - name: Recover original phase history and scoped UI changes
+        with:
+          ref: 2e19249ec2030c4b19a1c73336899e1413b78695
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require identical application, training code and dependencies
         run: |
-          cp phase-7-source.tar.gz /tmp/phase-7-source.tar.gz
-          git fetch ./phase-6.bundle complete-phases-real-catalog
-          git checkout -B complete-phases-real-catalog FETCH_HEAD
-          tar xzf /tmp/phase-7-source.tar.gz
-      - run: python -m pip install --extra-index-url https://download.pytorch.org/whl/cpu -r backend/requirements-linux-reference.txt
-      - name: Native fresh PostgreSQL fixture
+          python - <<'PY'
+          import os
+          import subprocess
+          assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip() == os.environ['VERIFIED_SOURCE']
+          changed = subprocess.check_output(['git', 'diff', '--name-only', os.environ['TRAINED_SOURCE'], 'HEAD'], text=True).splitlines()
+          assert changed and set(changed) <= {'frontend/e2e/journeys.spec.js'}, changed
+          print('Only the browser test file changed from the natively trained and Python-tested source.')
+          PY
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12', cache: pip, cache-dependency-path: 'backend/requirements*.txt'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm, cache-dependency-path: frontend/package-lock.json}
+      - run: python -m pip install torch==2.9.0 --index-url https://download.pytorch.org/whl/cpu
+      - run: python -m pip install -r backend/requirements-training.txt
+      - name: Native empty PostgreSQL fixture
         run: |
           sudo systemctl start postgresql
           sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
           sudo -u postgres createdb scenthaus
           cd backend && alembic upgrade head
       - run: python -m app.seed
-      - name: Reuse verified training artifacts, not test data or production data
+      - name: Restore immutable artifact from the completed native training run
         uses: actions/download-artifact@v4
         with:
-          name: phase-6-native-evidence
-          run-id: 37341308924
+          artifact-ids: 11389275875
+          run-id: 37409637077
           github-token: ${{ github.token }}
-          path: /tmp/trained
-      - name: Register immutable release against matching fresh seed
+          path: .
+      - name: Verify the Python receipt and register the matching model bundle
         run: |
-          mkdir -p data/models
-          cp -a /tmp/trained/data/models/. data/models/
-          python -m ml.publish_base
-      - run: pytest -q --junitxml=data/native-ui-tests.xml
-      - run: ruff check .
-      - run: npm --prefix tools ci && node --test tools/tests/pg-lock.test.mjs
-      - run: npm ci && npm run build
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          from app.vercel_init import initialize
+          from app.ml.serving import store
+          suites = list(ET.parse('data/tests.xml').getroot().iter('testsuite'))
+          assert len(suites) == 1
+          assert all(int(suites[0].attrib[key]) == 0 for key in ['errors', 'failures', 'skipped'])
+          assert int(suites[0].attrib['tests']) == 65
+          initialize()
+          model = store.get()
+          assert model is not None
+          for name in ['browser-tests.json', 'home-desktop.png', 'admin-forecast.png']:
+              (Path('reports') / name).unlink(missing_ok=True)
+          Path('reports/browser-verification.json').write_text(json.dumps({
+              'source': os.environ['VERIFIED_SOURCE'],
+              'training_source': os.environ['TRAINED_SOURCE'],
+              'training_run': 37409637077,
+              'training_artifact': 11389275875,
+              'python_tests_from_unchanged_source': 65,
+              'model_version': model['version'],
+              'data_hash': model['metrics']['validation']['data_hash'],
+              'fixture': 'fresh native PostgreSQL with simulated records',
+          }, indent=2))
+          PY
+      - name: Start the seeded API and await readiness
+        run: |
+          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > reports/browser-api.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8000/health > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat reports/browser-api.log
+          exit 1
+      - run: npm ci
         working-directory: frontend
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
-      - name: Start API and await readiness
-        run: |
-          uvicorn app.main:app --host 127.0.0.1 --port 8000 > data/ci-api.log 2>&1 &
-          python - <<'PY'
-          import time, urllib.request
-          for attempt in range(30):
-              try:
-                  urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=2)
-                  break
-              except OSError:
-                  time.sleep(1)
-          else:
-              raise SystemExit("API did not become ready")
-          PY
-      - run: npm test
+      - run: npm test && npm run build
         working-directory: frontend
-      - name: Commit verified phase 7 and preserve original phase 6 history
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('PLAN.md')
-          p.write_text(p.read_text().replace('[ ] PHASE 7: REACT UI', '[x] PHASE 7: REACT UI'))
-          PY
-          git config user.name 'SCENTHAUS project automation'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/workflows/ci.yml backend/app/main.py backend/app/schemas.py backend/tests/test_api.py frontend README.md PLAN.md ml/reports/ui.md
-          git commit -m 'phase 7: React storefront and forecast dashboard'
-          git push origin HEAD:complete-phases-real-catalog
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: phase-7-browser-evidence
+          name: corrected-browser-journey-evidence
           retention-days: 7
           path: |
-            data/native-ui-tests.xml
-            data/ci-api.log
-            reports/
+            reports/browser-verification.json
+            reports/browser-api.log
+            reports/browser-tests.json
+            reports/*.png
             frontend/test-results/
-            ml/reports/ui.md
