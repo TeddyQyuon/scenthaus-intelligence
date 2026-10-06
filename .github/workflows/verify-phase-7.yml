@@ -58,6 +58,7 @@ jobs:
           artifact-ids: 11389275875
           run-id: 37409637077
           github-token: ${{ github.token }}
+          merge-multiple: true
           path: .
       - name: Verify the Python receipt and register the matching model bundle
         run: |
