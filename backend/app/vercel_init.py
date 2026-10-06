@@ -190,7 +190,9 @@ def package_runtime_ml(service_root: Path, source_root: Path) -> Path:
 def build_lock(lock_engine: Engine) -> Iterator[None]:
     # Neon keeps an idle transaction active during CPU-only model training.
     # The direct connection holds the lock until commit or rollback on exit.
+    # Scope the idle timeout override to this build transaction only.
     with lock_engine.begin() as lock:
+        lock.execute(text("SET LOCAL idle_in_transaction_session_timeout = '0'"))
         lock.execute(text("SELECT pg_advisory_xact_lock(736284105)"))
         yield
 
