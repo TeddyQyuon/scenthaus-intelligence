@@ -156,6 +156,38 @@ test("real catalog, discovery, consent, wishlist, quiz and demo order", async ({
   expect(errors).toEqual([]);
 });
 
+test("brand directory searches all 35 houses and filters the collection", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/shop#brands");
+
+  const directory = page.locator(".brand-directory");
+  await expect(directory).toHaveAttribute("open", "");
+  await expect(page.locator(".brand-grid > a")).toHaveCount(35);
+  await expect(page.locator(".brand-grid")).toBeVisible();
+  await expect(
+    page.locator(".brand-grid").getByRole("link", { name: "Dolce & Gabbana" }),
+  ).toHaveAttribute("href", "/shop?brand=Dolce%20%26%20Gabbana");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBeTruthy();
+
+  await page.getByRole("textbox", { name: "Search fragrance houses" }).fill("Maison");
+  await expect(page.locator(".brand-grid > a")).toHaveCount(2);
+  await page
+    .locator(".brand-grid")
+    .getByRole("link", { name: "Maison Francis Kurkdjian" })
+    .click();
+  await expect(page).toHaveURL(/brand=Maison(?:%20|\+)Francis(?:%20|\+)Kurkdjian/);
+  await expect(page.getByLabel("House")).toHaveValue("Maison Francis Kurkdjian");
+  await expect(page.locator(".product-card").first()).toContainText(
+    "Maison Francis Kurkdjian",
+  );
+});
+
 test("forecast dashboard is protected and compares serving models", async ({
   page,
 }) => {
@@ -251,7 +283,7 @@ test("mobile catalogue and search controls fit the viewport", async ({ page }) =
   await page.getByRole("button", { name: "Toggle navigation" }).click();
   await page
     .getByRole("navigation")
-    .getByRole("link", { name: "The collection", exact: true })
+    .getByRole("link", { name: "Shop all", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "The collection." }),

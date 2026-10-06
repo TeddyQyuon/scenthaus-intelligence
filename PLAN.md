@@ -10,6 +10,7 @@ Tick [x] when a phase's Done-when checks pass.
 - Phase 9 uses Vercel Services and managed PostgreSQL only. A separate empty Preview database and a separate empty Production database are required before first deployment; account configuration remains the owner's step. Never reset or overwrite the existing production database as part of this work.
 - CI is configured for native PostgreSQL and Playwright. Local tests that need PostgreSQL/browser binaries may be unavailable in this workspace; record which checks actually ran in `reports/verification.md`.
 - Hyperparameters are YAML. Data/time splits are chronological. Generated training data and trained weights are not committed.
+- The user requested the 35 named houses and a Sephora-inspired shop. All 35 already exist in the reference catalogue; the follow-up refresh exposes them through searchable brand navigation and gives SCENTHAUS its own beauty-retail layout. This source update does not complete the database-dependent live release in Phase 9.
 
 ## Phases
 

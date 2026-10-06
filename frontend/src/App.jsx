@@ -8,6 +8,7 @@ import {
   Outlet,
   useLocation,
   useParams,
+  useSearchParams,
 } from "react-router-dom";
 import {
   ArrowRight,
@@ -25,15 +26,23 @@ import {
   Minus,
   Check,
   ShieldCheck,
+  ChevronDown,
 } from "lucide-react";
 import { ShopProvider, useShop } from "./context";
 import { api, money, message, download } from "./api";
+import { BRAND_HOUSES } from "./brands";
 const Admin = lazy(() => import("./Admin"));
 function Scroll() {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
+    if (hash) {
+      window.requestAnimationFrame(() => {
+        document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView();
+      });
+    } else {
+      window.scrollTo(0, 0);
+    }
+  }, [pathname, hash]);
   return null;
 }
 export function ErrorBox({ error }) {
@@ -103,19 +112,19 @@ export function ProductCard({ product: p, rec }) {
       <p className="eyebrow">{p.brand}</p>
       <div className="card-title">
         <Link to={`/product/${p.slug}`} onClick={()=>rec?.recommendation_id&&track(p.id,"click",rec.recommendation_id)}>{p.name}</Link>
-        <button
-          className="icon"
-          disabled={!variant || busy}
-          aria-label={`Add ${p.name} to bag`}
-          onClick={() => action(() => add(variant))}
-        >
-          <Plus size={19} />
-        </button>
       </div>
       <p className="metadata">
         {p.category} · {p.concentration} · {Object.values(p.notes).flat().slice(0, 3).join(", ")}
       </p>
       <p className="price">From {money(p.price_from)}</p>
+      <button
+        className="quick-add"
+        disabled={!variant || busy}
+        aria-label={`Add ${p.name} to bag`}
+        onClick={() => action(() => add(variant))}
+      >
+        <Plus size={15} /> Add to bag
+      </button>
       {!!p.reason_tags?.length && (
         <div className="reason-chips" aria-label="Why this scent was suggested">
           {p.reason_tags.map((tag) => (
@@ -155,7 +164,7 @@ function Layout() {
   const loc = useLocation();
   useEffect(() => {
     setOpen(false);
-  }, [loc.pathname]);
+  }, [loc.pathname, loc.search, loc.hash]);
   return (
     <>
       <div className="announcement">
@@ -170,8 +179,9 @@ function Layout() {
           <span className="brand-caption">THE ART OF FINDING YOU</span>
         </Link>
         <nav className={open ? "open" : ""}>
-          <NavLink to="/shop">The collection</NavLink>
-          <NavLink to="/quiz">Find your scent</NavLink>
+          <NavLink to="/shop">Shop all</NavLink>
+          <Link to="/shop#brands">Shop by brand</Link>
+          <NavLink to="/quiz">Scent finder</NavLink>
           <NavLink to="/intelligence">The intelligence</NavLink>
         </nav>
         <div className="header-icons">
@@ -305,17 +315,15 @@ function Home() {
         <span className="hero-index">01 / A SCENT OF SELF</span>
       </section>
       <div className="houses">
-        <span className="eyebrow">IN GOOD COMPANY</span>
-        {[
-          "DIOR",
-          "CHANEL",
-          "YVES SAINT LAURENT",
-          "TOM FORD",
-          "CREED",
-          "LE LABO",
-        ].map((h) => (
-          <span key={h}>{h}</span>
+        <span className="eyebrow">SHOP FRAGRANCE HOUSES</span>
+        {BRAND_HOUSES.slice(0, 6).map((house) => (
+          <Link key={house} to={`/shop?brand=${encodeURIComponent(house)}`}>
+            {house}
+          </Link>
         ))}
+        <Link className="all-houses-link" to="/shop#brands">
+          Browse all 35 <ArrowRight size={14} />
+        </Link>
       </div>
       <section className="section">
         <div className="section-heading">
@@ -393,11 +401,13 @@ function Home() {
   );
 }
 function Shop() {
-  const [data, setData] = useState({ products: [], brands: [] }),
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const [data, setData] = useState({ products: [], brands: BRAND_HOUSES }),
     [filters, setFilters] = useState({
       q: "",
       category: "",
-      brand: "",
+      brand: searchParams.get("brand") || "",
       budget: "",
       size: "",
       gender: "",
@@ -406,8 +416,19 @@ function Shop() {
       sort: "featured",
     }),
     [natural, setNatural] = useState(false),
+    [brandOpen, setBrandOpen] = useState(location.hash === "#brands"),
+    [brandQuery, setBrandQuery] = useState(""),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const brand = searchParams.get("brand") || "";
+    setFilters((current) =>
+      current.brand === brand ? current : { ...current, brand },
+    );
+  }, [searchParams]);
+  useEffect(() => {
+    if (location.hash === "#brands") setBrandOpen(true);
+  }, [location.hash]);
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -434,17 +455,84 @@ function Shop() {
   }, [filters, natural]);
   function change(key, value) {
     setFilters((f) => ({ ...f, [key]: value }));
+    if (key === "brand") {
+      const next = new URLSearchParams(searchParams);
+      if (value) next.set("brand", value);
+      else next.delete("brand");
+      setSearchParams(next, { replace: true });
+    }
     setError("");
   }
+  function resetFilters() {
+    setFilters({
+      q: "", category: "", brand: "", budget: "", size: "", gender: "",
+      season: "", in_stock: false, sort: "featured",
+    });
+    setSearchParams({}, { replace: true });
+    setNatural(false);
+    setError("");
+  }
+  const availableBrands = data.brands.length ? data.brands : BRAND_HOUSES;
+  const visibleBrands = availableBrands.filter((brand) =>
+    brand.toLocaleLowerCase().includes(brandQuery.trim().toLocaleLowerCase()),
+  );
   return (
     <section className="section shop">
-      <p className="eyebrow">150 SCENTS. 35 ICONIC BRANDS.</p>
+      <p className="eyebrow">THE SCENTHAUS FRAGRANCE COUNTER</p>
       <h1>The collection.</h1>
-      <p className="intro">Follow a note. Find a feeling. Make it yours.</p>
+      <p className="intro">Explore 150 fragrance references across 35 houses. Follow a note, find a feeling, and discover your next signature.</p>
       <p className="notice">
         Reference catalogue only. Prices and stock are simulated, and demo
         checkout does not take payment or fulfil orders.
       </p>
+      <details
+        className="brand-directory"
+        id="brands"
+        open={brandOpen}
+        onToggle={(event) => setBrandOpen(event.currentTarget.open)}
+      >
+        <summary>
+          <span>
+            <span className="eyebrow">SHOP BY HOUSE</span>
+            <strong>Explore all 35 fragrance houses</strong>
+          </span>
+          <span className="directory-count">
+            {availableBrands.length} houses <ChevronDown size={17} />
+          </span>
+        </summary>
+        <div className="brand-directory-content">
+          <label className="brand-search-field">
+            <Search size={17} />
+            <span className="sr-only">Search fragrance houses</span>
+            <input
+              aria-label="Search fragrance houses"
+              placeholder="Find a brand"
+              value={brandQuery}
+              onChange={(event) => setBrandQuery(event.target.value)}
+            />
+          </label>
+          <div className="brand-grid">
+            {visibleBrands.map((brand) => (
+              <Link
+                className={filters.brand === brand ? "active" : ""}
+                key={brand}
+                to={`/shop?brand=${encodeURIComponent(brand)}`}
+                onClick={() => {
+                  setNatural(false);
+                  setFilters((current) => ({ ...current, q: "", brand }));
+                  setError("");
+                }}
+              >
+                {brand}
+                <ArrowUpRight size={13} />
+              </Link>
+            ))}
+          </div>
+          {!visibleBrands.length && (
+            <p className="metadata">No fragrance houses match “{brandQuery}”.</p>
+          )}
+        </div>
+      </details>
       <div className="search-field">
         <Search size={19} />
         <input
@@ -492,6 +580,7 @@ function Shop() {
                   sort: "featured",
                 }));
                 setError("");
+                setSearchParams({}, { replace: true });
               }}
             >
               {query}
@@ -547,7 +636,7 @@ function Shop() {
           <option value="price-high">Price: high to low</option>
         </select>
       </div>
-      <div className="results-count">
+      <div className="results-count" id="products">
         {loading ? "Finding your scents…" : `${data.products.length} scents`}
         {data.parsed && (
           <span>
@@ -563,21 +652,7 @@ function Shop() {
         <div className="empty">
           <h2>No scents in this edit.</h2>
           <p>Try a wider budget or another note.</p>
-          <button
-            onClick={() =>
-              setFilters({
-                q: "",
-                category: "",
-                brand: "",
-                budget: "",
-                size: "",
-                gender: "",
-                season: "",
-                in_stock: false,
-                sort: "featured",
-              })
-            }
-          >
+          <button onClick={resetFilters}>
             Reset filters
           </button>
         </div>

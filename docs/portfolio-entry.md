@@ -2,7 +2,7 @@
 
 **A fragrance discovery storefront with a real reference catalogue and an end-to-end machine-learning evaluation and serving pipeline.**
 
-- Built a React/Vite storefront and FastAPI/PostgreSQL service for product discovery, consent-aware recommendations, search, simulated checkout and admin forecasting.
+- Built a React/Vite storefront and FastAPI/PostgreSQL service for product discovery, consent-aware recommendations, search, simulated checkout and admin forecasting. The storefront includes a searchable 35-house brand directory, direct brand filters and a beauty-retail layout.
 - Evaluated recommender, search and demand models against baselines using chronological splits; the reported user activity, sales and search labels are simulated or unreviewed.
 - Prepared Vercel Services deployment with versioned serving artifacts, API guards and a catalog release check. The current public Vercel alias still serves the older invented-catalog build.
 

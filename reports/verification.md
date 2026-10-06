@@ -1,5 +1,13 @@
 # Verification record
 
+## Storefront merchandising follow-up — 2026-10-06
+
+The requested beauty-retail refresh exposes all 35 catalogue houses through searchable brand navigation, applies brand links to the collection filter, and adds visible quick bag actions. Local `npm run build`, JavaScript syntax and `git diff --check` pass. A consistency check confirms the 35 unique storefront house names match `backend/app/real_catalog.json` exactly.
+
+A fourth Playwright journey now checks the mobile directory, brand search, encoded brand links and filtered results. The existing mobile journey uses the updated navigation label. These new journeys have not yet run locally: the Playwright browser download returned an invalid archive, and the cloud browser cannot open this workspace's loopback server. The earlier native/browser results below verify the earlier runtime revision; they do not verify this follow-up. Its Vercel release remains dependent on the separate clean databases described in `deployment.md`.
+
+## Earlier verified runtime
+
 **Checked 2026-10-06. Published runtime source: `bebe4a53604c0eaca58d791615ef677cb1903cc4`.** The backend, training code and dependencies are unchanged from native-tested source `2e19249ec2030c4b19a1c73336899e1413b78695`. Its three changed files are the two frontend views and their browser journeys.
 
 | Check | Result | Scope |
@@ -33,4 +41,4 @@ Initial prepared source `560f2a4` was published as `00b39de` with exact tree `41
 
 Original phase 6–9 history is retained in `prepared-phase-6-9.bundle` on the recovery branch, SHA-256 `20f939c9f0883d17956a89f1705e8e62b0ee24176a26a1b091305c7bf2828d8e`. Recovery files are archival and are not the product deployment branch. Earlier invented-catalogue logs are clearly separated under [`historical/`](historical/); they do not verify this release.
 
-The final publication after this runtime commit changes documentation and historical-report locations only. Its runtime files remain identical to the verified source above.
+The Phase 9 publication after that runtime commit changed documentation and historical-report locations only. Its runtime files were identical to the verified source above. The newer storefront follow-up is recorded separately at the top of this report.
