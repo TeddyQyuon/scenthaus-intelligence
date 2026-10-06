@@ -1,36 +1,56 @@
 # Vercel deployment
 
-SCENTHAUS hosts its React/Vite frontend and FastAPI backend together on Vercel Services. The project root is the repository root. Use the current `services` configuration rather than the older `experimentalServices` syntax; services preserve original request paths, so `backend/main.py` mounts the API at `/api`. Frontend SPA rewrites belong to the storefront service and cannot swallow API responses.
+This repository targets Vercel Services for the React/Vite storefront and FastAPI API. It does not use Docker or Render. Vercel's project root must be the repository root so it can read `vercel.json`; the config assigns `frontend/` and `backend/` to their services and routes `/api/*` to FastAPI.
 
-## Database and initial build
+## Before deploying
 
-Create a dedicated managed PostgreSQL database. Neon or Supabase can supply the URL; prefer a pooled URL for requests and require TLS. Also set DATABASE_URL_UNPOOLED to a direct connection for initialization when using a transaction pooler. The Neon integration injects both. Store DATABASE_URL, ENVIRONMENT=production, SECRET_KEY, ADMIN_EMAIL, ADMIN_PASSWORD, CRON_SECRET and ALLOWED_ORIGINS in the Vercel project. Database passwords and runtime secrets never go in source control.
+Create two separate managed PostgreSQL databases: one for Preview and one for Production. Each database must be new and empty for the first build of this release. Do not point this release at the older production database: the bootstrap validates the exact 150-product reference catalogue and fails without modifying an older or mixed catalogue.
 
-The API build runs `python -m app.vercel_init`. It takes a session advisory lock on the direct connection, applies Alembic migrations, runs the idempotent generator if the catalogue is empty, and registers the committed model version and forecasts. Orders, lines and events use bounded bulk inserts in one transaction instead of one network round trip per simulated order. It preserves an existing catalogue and orders. Seeds are reproducible fictional data, with 2,000 users and 104 weeks of history. A missing cloud connection fails the build with a clear message; it does not publish a storefront backed by a placeholder API.
+Add the variables below to the matching Vercel environment. Do not copy Production database values into branch previews.
 
-The bootstrap's model-registry entry points to the bundled offline training version. Its MLflow run ID is unset because the original tracking database is not hosted. Offline metrics and the version checksum are delivered with the model. Subsequent CI training logs its own MLflow run and uploads tracking evidence as a workflow artifact.
+| Variable | Value |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL URL for API requests. Use a TLS URL and a provider's pooled endpoint where supported. |
+| `DATABASE_URL_UNPOOLED` | Direct PostgreSQL URL for the build's session advisory lock. |
+| `ENVIRONMENT` | `production` |
+| `SECRET_KEY` | Unique random value of at least 32 characters. |
+| `ADMIN_EMAIL` | Initial admin email for the empty-database seed. |
+| `ADMIN_PASSWORD` | Unique initial admin password, at least 12 characters. |
+| `CRON_SECRET` | Unique bearer secret for the daily maintenance cron. |
+| `ALLOWED_ORIGINS` | Exact public HTTPS storefront origin. Vercel's current and production project URLs are also added at runtime. |
 
-## Serving and schedules
+The frontend uses same-origin `/api` requests. No `VITE_API_URL` is needed. Local values and examples are in [`frontend/.env.example`](../frontend/.env.example) and [`backend/.env.example`](../backend/.env.example).
 
-Vercel's filesystem is read-only except for temporary files. Requests load the checksum-verified pickle from the committed artifact folder and read/write customer state in PostgreSQL. No request trains or activates models. Python runtime dependencies live in pyproject.toml; the larger training environment uses requirements.txt.
+## Build and initialization
 
-An authenticated daily Vercel Cron calls `/api/internal/maintenance` at 20:00 UTC (04:00 Singapore). It deletes expired sessions/retention-limited events and reconciles forecast snapshots only after full weeks finish. CRON_SECRET must be set for Vercel to send its bearer header; missing or wrong credentials return 401.
+The API service build command is `python -m app.vercel_build`. It checks the required database variables, creates a temporary build-only Python environment, installs CPU PyTorch and training dependencies, then runs `app.vercel_init`. The initializer takes a PostgreSQL advisory lock, applies Alembic migrations, seeds only an empty database with the 150 real-product references and simulated records, validates the catalogue, trains a versioned bundle when one is not current, and downloads the pinned ONNX query encoder.
 
-Weekly training is the separate GitHub Actions workflow `retrain.yml`. Configure its three SCENTHAUS secrets and opt-in variable before enabling the Sunday 03:00 Singapore schedule. The job trains with temporal evaluation and validation gates, saves MLflow evidence, and pushes immutable model files to main. Vercel's Git integration then builds/deploys the new version. The secret connection must belong to this project's database. Calendar support ends in 2027; verify and add future-year holiday dates before future-horizon training. In the delivered hosted project this weekly job remains disabled pending approval to share the database credential with this repository's Actions workflows.
+The API build then copies only the inference modules and YAML configs into the API service root. The function includes those files and `backend/artifacts/`; its request path uses NumPy and ONNX Runtime and never trains or writes model files. Generated weights and simulated training records are not committed.
 
-## Verification before production promotion
+The first build trains from the synthetic history and may take substantially longer than a frontend build. If it fails because the database lacks the 150-product catalogue or the build environment lacks the required variables, it fails closed. Create a separate clean database or correct the environment settings, then retry; it does not rewrite a legacy catalogue.
 
-Verify `/api/health`, catalogue access, consent and session cookies, persistence across reload, quiz results, demo checkout and guest admin rejection. Sign in with the configured admin account to verify forecasting, inventory, exports and model health. Check build/function logs for errors and only then update the portfolio live-demo link.
+## Release verification
 
-## Current evidence
+After setting environment values and deploying, verify:
 
-See `reports/deployment.md` for actual account setup, commit and deployment outcomes. Repository code and deployment configuration do not imply that production is live.
+1. The API build completed its migrations, clean seed, catalogue check, model registration and ONNX checksum check.
+2. `/api/health` succeeds and `/api/products?in_stock=false` returns 150 products from 35 brands.
+3. Search, product pages, quiz, wishlist, cart and demo checkout work; checkout takes no payment.
+4. Consent-off quiz answers are not retained; opt-in tracking, export and withdrawal behave as documented.
+5. Guest access to `/admin/forecast` is rejected, and an admin can inspect model versions, forecast comparisons and inventory signals.
+6. Vercel logs show no API errors and the scheduled `/api/internal/maintenance` request is authorized with `CRON_SECRET`.
 
-## Official references
+Do not change the public demo alias until the new release passes these checks. Current account and deployment observations are in [`reports/deployment.md`](../reports/deployment.md); automated code checks are tracked in [`reports/verification.md`](../reports/verification.md).
 
-- https://vercel.com/docs/services
-- https://vercel.com/docs/services/routing
-- https://vercel.com/docs/services/config-reference
-- https://vercel.com/docs/frameworks/backend/fastapi
-- https://vercel.com/docs/functions/runtimes/python
-- https://vercel.com/docs/cron-jobs
+## Current account step
+
+The code and Vercel routing are prepared, but the new release is not live. The Vercel project currently has no Preview database URL and its Production database serves the older invented catalogue. The owner needs to create/configure the dedicated Preview and Production databases and environment variables before a deployment can pass initialization. The release guard prevents accidental catalog replacement.
+
+## References
+
+- [Vercel Services](https://vercel.com/docs/services)
+- [Vercel Services routing](https://vercel.com/docs/services/routing)
+- [Vercel project configuration](https://vercel.com/docs/project-configuration/vercel-json)
+- [FastAPI on Vercel](https://vercel.com/docs/frameworks/backend/fastapi)
+- [Python runtime file inclusion](https://vercel.com/docs/functions/runtimes/python)
+- [Vercel Cron Jobs](https://vercel.com/docs/cron-jobs)

@@ -1,10 +1,11 @@
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app
+from app.main import app, requests
 
 
 @pytest.fixture
 def client():
+    requests.clear()
     with TestClient(app) as c:
         r = c.get("/auth/session")
         assert r.status_code == 200

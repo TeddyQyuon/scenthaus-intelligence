@@ -1,27 +1,40 @@
-# Human involvement and risk
+# Privacy, human oversight and model limits
 
-This project uses Singapore’s Model AI Governance Framework as a design lens: internal accountability, proportionate human involvement, operations management and transparent stakeholder communication. This document describes engineering choices, not a PDPA compliance opinion or certification.
+This is an engineering description for a portfolio demonstration, not legal advice, a PDPA compliance opinion or a certification. The real-product reference catalogue is paired with **SIMULATED** users, quiz profiles, browsing activity, orders, prices and stock.
 
-| Decision | Involvement | Reason and control |
+## User control
+
+- Personalization starts off. A user can opt in from the privacy settings.
+- Without consent, `POST /events` declines tracking. A quiz answer is used for that response and is not saved as a profile.
+- With consent, product interactions and quiz profiles may be used for personalization and future model training. Training joins each record to the account's current consent state and excludes users who have withdrawn.
+- Withdrawal deletes the user's tracked events, quiz profile and recommendation references. Wishlist, cart and demo orders remain as functional account data. Previously trained aggregate model contributions update only after a later model build.
+- The user can export account, quiz, wish-list, order and event records through the session-owned privacy export route.
+- Events and recommendation references expire after the configured 180-day retention period; expired sessions are deleted by the daily maintenance route.
+
+## Data handling
+
+Email addresses and password hashes are account data and are not model features. Passwords are Argon2-hashed; opaque high-entropy session tokens are stored as digests in PostgreSQL and sent in HttpOnly cookies. Model features use a pseudonymous account identifier and preference/history signals. Pseudonymisation is not anonymisation.
+
+Admin endpoints require an admin role. User-owned cart, wishlist, order and export routes enforce ownership. Event writes validate recommendation ownership and product membership before attribution. Admin exports avoid account email; formula-like spreadsheet values are neutralized.
+
+## Human involvement
+
+| Output | Human role | Control |
 | --- | --- | --- |
-| Suggested fragrances | Human-over-the-loop | Low-stakes discovery; shoppers choose what to open/buy. Match explanations, opt-out, filters and brand diversity. Admins can pin/hide with an audit record. |
-| Replenishment quantities | Human-in-the-loop | Forecast error can waste money or cause shortages. Dashboard shows intervals, risk, drift and held-out error. No automatic supplier order endpoint exists. |
-| Customer segments | Human interpretation | Aggregate RFM clusters support analysis. Gift/deal labels are descriptive heuristics, not verified motives, individual eligibility or discriminatory decisions. |
-| Price response | Research only | Simulated promotions confound observational coefficients. No automatic pricing, willingness-to-pay inference or causal claim. |
-| Neural recommenders | Optional experiment | Opt-in routes, diagnostic learning curves and explicit evaluation limitations. Default serving remains the documented hybrid. |
+| Fragrance recommendations and search | Shopper decides whether to inspect or buy | Consent, filters, explainable note/accord tags, eligibility checks and product hide/pin settings |
+| Forecast and stock-risk signals | Admin reviews the forecast and inventory context | Model picker, historical validation metrics and interval bands; no automated purchase/order endpoint |
+| Customer aggregates | Admin interprets summaries | Aggregated reporting; no eligibility or consequential decision |
+| Pricing or willingness-to-pay | Not used for automatic decisions | Promotion correlations are not treated as causal evidence |
 
-Personalization requires an affirmative toggle and defaults off. Consent withdrawal removes events, recommendation references and quiz profile; future training excludes the user’s records. Functional wishlist/cart/orders remain to provide shopping features. Already learned aggregate model contributions are not instantly unlearned; scheduled retraining refreshes those aggregates. This tradeoff is explained in the product and the model cards.
+## Risks and limits
 
-Email and Argon2 password hashes stay in the account table. ML receives pseudonymous user IDs for aggregation, not emails, passwords, names, addresses or card details. Pseudonymous activity may still be personal data; access restrictions, session ownership and retention apply. The daily worker expires tracking/reference data after 180 days. Personal export is session-owned; admin CSV avoids emails and protects spreadsheet formula cells.
-
-| Risk | Mitigation | Remaining limitation |
+| Risk | Current mitigation | Remaining limitation |
 | --- | --- | --- |
-| Consent bypass | Server gates tracking/training; CSRF/Origin checks; opt-out tests | Existing aggregate models need retraining for removal |
-| Popularity/brand concentration | Content cold start, MMR brand penalty, coverage/diversity metrics | No demographic fairness claim; synthetic users have no demographic features |
-| Overconfident matches | Shared-note explanations and cosine alignment label | Preferences and fragrance performance are subjective |
-| Forecast error | Rolling origins, holdout scores, intervals, Croston, human review | 24 synthetic months cannot represent real shocks; 12-week bands extrapolate calibration |
-| Unauthorized dashboard | Python role checks, opaque sessions, HttpOnly cookies, Argon2, session rotation | Internet production needs ingress rate limits, managed secrets, backups and incident procedures |
-| Misleading evaluation | Simulated labels throughout; popularity baseline; actual JSON results | Generator choices can favour algorithms; no real uplift evidence |
-| Model artifact tampering | Trusted local artifacts, checksum/path validation, atomic activation | Pickle is unsafe for untrusted inputs; disk access must be restricted |
+| Tracking without permission | Consent checks are enforced by API routes and covered by tests | Functional commerce records remain when tracking is withdrawn |
+| Popularity or brand concentration | Brand-diversity metric, content fallback, eligibility filters and user-visible explanations | No demographic fairness claim; synthetic users contain no demographic features |
+| Overstated quiz match | UI describes match as accord alignment, not a probability | Fragrance preferences and performance are subjective |
+| Misleading search scores | Draft labels are explicitly marked unreviewed | No independent human relevance set |
+| Forecast error | Baselines, chronological evaluation and measured interval coverage are shown | Simulated history is short; category coverage is poor in this run and 12-week accuracy is not established |
+| Model/artifact misuse | Trusted build artifacts, versioning and checksum/path validation | Pickle files are unsafe if supplied by an untrusted source; restrict build and artifact access |
 
-An administrator owns deployment, data/holiday updates, artifact permissions and incident handling. Review drift/error alerts, stock recommendations and consent-removal refreshes. Product controls and stock edits write audit logs. Reassess the design before using real customers, consequential decisions or payment processing.
+Before adding real customer data, payments, automated purchasing or supplier actions, review the legal basis, consent language, access controls, retention policy, incident handling, backups and model evaluation with the accountable owner. Forecasts and recommendation metrics must be recomputed on suitable real-world data before any operational claim.

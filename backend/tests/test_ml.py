@@ -61,7 +61,7 @@ def test_time_cutoff_no_future_popularity():
         assert all(
             model["new"][model["index"][pid]]
             and model["popularity"][model["index"][pid]] == 0
-            for pid in [33, 34, 35, 36]
+            for pid in [147, 148, 149, 150]
         )
 
 

@@ -1,5 +1,7 @@
 """Weighted PyTorch two towers; honest comparisons against Phase 2 baselines."""
 
+from .tracking import tracked
+
 from copy import deepcopy
 from collections import deque
 import json
@@ -318,6 +320,7 @@ def learn(
     )
 
 
+@tracked("recommender")
 def train() -> dict:
     data = snapshot()
     c = config("recommender")

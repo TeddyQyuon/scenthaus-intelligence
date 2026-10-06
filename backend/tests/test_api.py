@@ -12,7 +12,7 @@ def test_admin_protected(client):
         "/admin/overview",
         "/admin/products",
         "/forecast/summary",
-        "/forecast/sku?sku=SH-001-50",
+        "/forecast/sku?sku=SH-001-60",
     ]:
         assert client.get(path).status_code == 403
 
@@ -58,6 +58,7 @@ def test_recommendation_attribution(client):
     client.put("/privacy/consent", json={"consent": True})
     r = client.get("/recommend/user").json()
     p = r["products"][0]
+    assert p["reason_tags"]
     body = {
         "product_id": p["id"],
         "event_type": "impression",
@@ -139,7 +140,55 @@ def test_quiz_works_without_consent(client):
         )
         for p in result["products"]
     )
-    assert client.get("/privacy/export").json()["quiz"]["mood"] == "fresh"
+    export = client.get("/privacy/export").json()
+    assert export["quiz"] is None
+    assert not any(event["type"] == "quiz_submit" for event in export["events"])
+
+
+def test_quiz_storage_requires_consent_and_is_deleted_on_withdrawal(client):
+    body = {
+        "mood": "fresh",
+        "occasion": "office",
+        "intensity": "soft",
+        "budget": 100,
+        "size": 30,
+    }
+    client.post("/recommend/quiz", json=body)
+    assert client.get("/privacy/export").json()["quiz"] is None
+
+    client.put("/privacy/consent", json={"consent": True})
+    client.post("/recommend/quiz", json=body)
+    export = client.get("/privacy/export").json()
+    assert export["quiz"]["mood"] == "fresh"
+    assert any(event["type"] == "quiz_submit" for event in export["events"])
+
+    client.put("/privacy/consent", json={"consent": False})
+    export = client.get("/privacy/export").json()
+    assert export["quiz"] is None
+    assert export["events"] == []
+
+
+def test_real_catalog_and_brand_filters(client):
+    result = client.get("/products", params={"in_stock": False}).json()
+    assert len(result["products"]) == 150
+    assert len(result["brands"]) == 35
+    assert all(p["image"].startswith("/images/products/") for p in result["products"])
+    assert all(p["source"]["product_url"].startswith("https://") for p in result["products"])
+    dior = client.get(
+        "/products", params={"brand": "Dior", "in_stock": False}
+    ).json()["products"]
+    assert dior and all(p["brand"] == "Dior" for p in dior)
+
+
+def test_recommendations_include_reason_tags(client):
+    popular = client.get("/recommend/user").json()
+    assert popular["products"]
+    assert all(p["reason_tags"] for p in popular["products"])
+    quiz = client.post(
+        "/recommend/quiz",
+        json={"mood": "fresh", "occasion": "office", "intensity": "soft", "budget": 150},
+    ).json()
+    assert quiz["products"] and all(p["reason_tags"] for p in quiz["products"])
 
 
 def test_stock_substitutes(client):
@@ -167,7 +216,7 @@ def test_filters(client):
 
 
 def test_admin_controls_and_csv(admin):
-    original = admin.get("/products/citrus-theory").json()
+    original = admin.get("/products/dior-dior-sauvage-edp").json()
     try:
         assert (
             admin.put(
@@ -176,7 +225,7 @@ def test_admin_controls_and_csv(admin):
             == 422
         )
         admin.put("/admin/products/1", json={"pinned": False, "hidden": True})
-        assert admin.get("/products/citrus-theory").status_code == 404
+        assert admin.get("/products/dior-dior-sauvage-edp").status_code == 404
         assert all(
             p["id"] != 1 for p in admin.get("/recommend/user").json()["products"]
         )
@@ -192,7 +241,7 @@ def test_admin_controls_and_csv(admin):
 
 def test_forecast_bounds_and_horizon(admin):
     assert admin.get("/forecast/summary?horizon=3").status_code == 422
-    r = admin.get("/forecast/sku?sku=SH-001-50&horizon=12").json()
+    r = admin.get("/forecast/sku?sku=SH-001-60&horizon=12").json()
     assert len(r["forecast"]) == 12
     for f in r["forecast"]:
         assert (
@@ -203,6 +252,13 @@ def test_forecast_bounds_and_horizon(admin):
             <= f["upper80"]
             <= f["upper95"]
         )
+    neural = admin.get(
+        "/forecast/summary", params={"model": "lstm", "group": "all", "horizon": 8}
+    )
+    assert neural.status_code == 200
+    assert neural.json()["model"] == "lstm"
+    assert len(neural.json()["forecast"]) == 8
+    assert admin.get("/forecast/summary?model=unknown").status_code == 422
 
 
 def test_admin_analytics(admin):
@@ -239,7 +295,11 @@ def test_register_and_login_rotation(client):
 def test_neural_serving(client):
     client.put("/privacy/consent", json={"consent": True})
     client.put("/wishlist/1")
-    for ex in ["two_tower", "item2vec"]:
+    for ex in ["two_tower"]:
         assert (
             client.get("/recommend/user", params={"experiment": ex}).status_code == 200
         )
+
+
+def test_unimplemented_experiment_is_rejected(client):
+    assert client.get("/recommend/user?experiment=item2vec").status_code == 422

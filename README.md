@@ -1,168 +1,130 @@
 # SCENTHAUS Intelligence
 
-[Live storefront](https://scenthaus-intelligence.vercel.app/) · [Portfolio case study](https://teddy-qyuon-portfolio.vercel.app/projects/scenthaus-intelligence) · [Passed CI run](https://github.com/TeddyQyuon/scenthaus-intelligence/actions/runs/37198738709)
+[Public demo — legacy release](https://scenthaus-intelligence.vercel.app/) · [Portfolio case study](https://teddy-qyuon-portfolio.vercel.app/projects/scenthaus-intelligence) · [Source repository](https://github.com/TeddyQyuon/scenthaus-intelligence) · [Deployment status](reports/deployment.md)
 
-A fragrance storefront and machine-learning pipeline built with **React + Vite + Tailwind (JavaScript/JSX), Python FastAPI and PostgreSQL**. No Next.js. The shopping experience includes a fragrance quiz, product discovery, wishlist, persistent bag, account preferences and a protected business intelligence dashboard.
+> The public Vercel alias currently serves an older demo with an invented catalogue. This source revision contains the 150-product reference catalogue and is not live until a separate clean Preview and Production database is configured.
 
-**All historical customers and orders are simulated.** The catalog contains 150 real fragrances across 35 brands, with product-specific manufacturer or retailer photographs and source links. Prices and stock remain simulated. This project demonstrates a reproducible pipeline and modelling methods; it does not establish real commercial uplift or forecast accuracy on real fragrance demand. Demo checkout saves an order and updates inventory without collecting payment.
+SCENTHAUS Intelligence — a fragrance storefront built with React and Python, featuring personalized recommendations, demand forecasting and inventory analytics. Order history is simulated; reported results demonstrate the pipeline and methods, not real customer performance.
 
-## Host on Vercel
+## Catalogue and commerce notice
 
-Deploy this repository **from its root**, with React/Vite and FastAPI in the same Vercel Services project. The root `vercel.json` routes `/api/*` to Python and all storefront routes to React. No Docker host is required. PostgreSQL is a dedicated managed database, for example Neon through Vercel Marketplace.
+The reference catalogue contains **150 real fragrances across 35 brands**, with product-specific photographs and links to manufacturer or retailer sources. Source links identify where each reference came from; they do not verify supplier authenticity or current availability.
 
-1. Import `TeddyQyuon/scenthaus-intelligence` into the Qyuon Vercel team; keep Root Directory at the repository root.
-2. Create a **dedicated** PostgreSQL database and set the environment variables below. Do not reuse another application's database.
-3. Deploy. The Python build migrates and initializes the database once, then registers the included checksum-verified trained model. Later builds preserve customers, orders and admin catalogue changes.
-4. Visit `/api/health`, `/shop`, `/quiz` and `/admin`; sign in at `/account` using your configured admin account. Demo checkout records an order without charging money.
+Prices, stock, launch dates, users, browsing events and orders are simulated. Checkout creates a demo order and updates demo inventory; it never takes payment, sells, ships or fulfils a fragrance. Model results use generated behaviour, not real customer or commercial performance.
 
-| Environment variable | Value |
-| --- | --- |
-| DATABASE_URL | Dedicated PostgreSQL connection URL with `sslmode=require`; a pooled Neon URL works. |
-| DATABASE_URL_UNPOOLED | Direct PostgreSQL URL for the initialization lock when DATABASE_URL uses a transaction pooler; injected by the Neon integration. |
-| ENVIRONMENT | `production` |
-| SECRET_KEY | Unique random secret of at least 32 characters. |
-| ADMIN_EMAIL | Your admin email, default `admin@scenthaus.demo`. |
-| ADMIN_PASSWORD | Your chosen password, at least 12 characters, used only for initial seeding. |
-| CRON_SECRET | Unique random secret for authenticated maintenance. |
-| ALLOWED_ORIGINS | Your exact HTTPS production origin; Vercel also injects the current deployment and production hosts. |
+## Architecture
 
-Keep secrets in Vercel environment variables, never in Git. The daily Vercel Cron runs retention and reconciles complete forecast weeks at 04:00 Singapore time. Serverless requests load the committed model and do not train or write model files.
-
-Scheduled training runs separately through `.github/workflows/retrain.yml` at 03:00 Sundays in Singapore. Enable it only after configuring repository secrets `SCENTHAUS_DATABASE_URL`, `SCENTHAUS_SECRET_KEY`, `SCENTHAUS_ADMIN_PASSWORD` and variable `SCENTHAUS_RETRAIN_ENABLED=true`. It validates/evaluates, records MLflow evidence, commits model artifacts and lets the Git integration redeploy Vercel. That schedule is provided but is **not activated by this source alone**.
-
-The full training dependencies remain in `backend/requirements.txt`. Vercel uses the smaller runtime dependencies in `backend/pyproject.toml` and serves precomputed forecasts; LightGBM, statsmodels, Apriori training and MLflow are outside the request runtime.
-
-Public deployment status is recorded in [deployment evidence](reports/deployment.md). A READY static build alone does not establish that the API or database works.
-
-## Optional local containers
-
-Docker Compose remains an optional local convenience, not the requested hosting platform. Copy `.env.example` to `.env`, choose `POSTGRES_PASSWORD`, `SECRET_KEY` and `ADMIN_PASSWORD`, then run `docker compose up --build`. Storefront: http://localhost:5173; API: http://localhost:8000. The initializer generates and trains simulated history; the worker runs locally.
-
-## Run without Docker
-
-Use Python 3.12+, Node 22+ and a running PostgreSQL database.
-
-```bash
-cd backend
-python -m venv .venv
-# macOS/Linux:
-source .venv/bin/activate
-# Windows PowerShell: .venv\Scripts\Activate.ps1
-pip install -r requirements-dev.txt
-cp .env.example .env
-# Set DATABASE_URL and your ADMIN_PASSWORD in backend/.env.
-alembic upgrade head
-python -m app.seed
-python -m app.ml.train
-uvicorn app.main:app --reload --port 8000
+```mermaid
+flowchart TD
+  Storefront["React + Vite storefront"] --> Vercel["Vercel Services"]
+  Vercel --> API["FastAPI functions"]
+  API --> Postgres["Dedicated PostgreSQL"]
+  Build["Isolated CPU model build"] --> Bundle["Versioned serving bundle"]
+  Bundle --> API
+  Build --> Postgres
 ```
 
-In a second terminal:
+The browser uses one origin for the storefront and `/api`. PostgreSQL owns accounts, consent, saved items, simulated commerce and audit records. Vercel builds model artifacts from the consented dataset and packages them with the API deployment; API requests only run inference. Runtime recommendation inference uses cached NumPy arrays. Natural-language query embeddings use a pinned, quantized ONNX MiniLM encoder.
 
-```bash
-cd frontend
-npm ci
-npm run dev
-```
+## Features
 
-Optional worker: from backend with its environment active, run `python -m app.worker`. MLflow tracking uses a local SQLite store by default; open it with a compatible MLflow UI installation or inspect the logged metrics/artifacts. `mlflow-skinny` supplies tracking APIs, not the full UI server.
+- Browse and filter real fragrance references by brand, notes, size, budget, season and stock annotation.
+- Use hybrid recommendations, an accord-based quiz, similar-scent suggestions and natural-language search with example queries.
+- Save a wishlist and bag to the account; place a simulated order without payment.
+- Review demand forecasts, model comparisons, interval bands, inventory signals, model version and method notes in the protected admin area.
+- Manage default-off personalization consent, export personal data and withdraw tracking consent.
 
-## What is implemented
+## Evaluation on generated data
 
-| Area | Features |
-| --- | --- |
-| Data | Product note pyramids, accords, concentration, occasions/seasons, gender labels, longevity/sillage, 30/50/100ml variants, stock; SQL events, wishlist, bag and quiz; seeded users/orders with hidden tastes, noise, trend and Singapore calendar spikes; validation gates every training run. |
-| Recommendations | Precomputed TF-IDF/cosine similarities; item-item CF from orders/wishlist/activity; Apriori basket rules; quiz accord weights with match percentage; validation-tuned hybrid and new-item content fallback; shared-note/wishlist explanations; budget/size/gender/season/stock filters; MMR with brand penalty; in-stock substitutes; session-informed home row. |
-| Forecasts | Weekly SKU, brand and family aggregation; 4–12 week horizon; seasonal naive, ETS, SARIMA and pooled LightGBM; Croston for sparse SKUs; three expanding validation origins; WAPE/sMAPE/MASE; 80/95% residual-calibrated bands; holiday/promo regressors; revenue, trend, safety stock, reorder point, suggested quantities; holdout and live snapshots. |
-| Admin | API-protected dashboard, date-filtered KPIs/CSV, sales/forecast bands, top products/houses/size mix, stock risk, RFM + K-Means segments, placement attribution, evaluation, experiment simulator, model versions, latency/error/PSI monitoring, pin/hide and audited stock edits. |
-| Evaluation & operations | Temporal recommendation holdout and popularity baseline; random A/B assignment and two-proportion significance; Compose, Alembic, MLflow tracking, atomic activation, scheduled retraining, pytest, Playwright journeys and GitHub Actions with native PostgreSQL. |
-| Responsible AI | Default-off personalization, withdrawal and data download, no account email/password in model features, per-model cards, recommendation explanations, human overrides and documented risk/involvement. |
-| Stretch | Natural language search using learned TF-IDF/SVD latent embeddings; NumPy two-tower network; item2vec-style skip-gram session embeddings; observational log-price response by size. Experimental routes are opt-in and carry no superiority/causality claim. |
+The training snapshot has **2,000 simulated users, 78 weeks of history, 150 catalogue products, 35 brands and 297 size variants**. The recommender uses 52/13/13-week chronological cutoffs and evaluates 1,058 users against novel purchases. Search labels are generated from catalogue rules and have not been human-reviewed.
 
-See [feature matrix](docs/feature-matrix.md) for individual A–G mappings, [architecture](docs/architecture.md), [model cards](docs/model-cards.md) and [governance](docs/governance.md).
-
-## Reproduced results
-
-Seed 42 produced **2,000 simulated customers, 13,563 orders, 84,663 events, 150 products, 35 brands and 297 SKUs**, from 2025-03-31 through 2026-09-27. Hidden taste vectors are used only to generate the data; they are not provided to the models. Four products enter the simulated catalog in the final week; this is not a claim about their actual launch dates. Genuine test interactions therefore exclude products not available at the cutoff.
-
-Recommendation evaluation uses the last eight weeks as test and the preceding eight as validation. It excludes previously purchased products from both ranking candidates and relevant targets, evaluates 504 users with novel held-out purchases, and uses 32 available candidate products. Weights are chosen on validation NDCG, never on the test set. The table evaluates rankers before serving filters/MMR.
-
-| Ranker | Precision@5 | Recall@5 | NDCG@5 | Coverage | Diversity |
+| Recommender | Precision@10 | Recall@10 | NDCG@10 | Coverage | Brand diversity |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Popularity baseline | 0.0687 | 0.2345 | 0.1592 | 0.5313 | 0.7059 |
-| Content | 0.1405 | 0.5134 | 0.3573 | 1.0000 | 0.6531 |
-| Collaborative filtering | 0.1405 | 0.5187 | 0.3642 | 1.0000 | 0.6538 |
-| Tuned hybrid | 0.1413 | 0.5154 | 0.3600 | 1.0000 | 0.6527 |
+| Popularity | 0.03195 | 0.18188 | 0.10609 | 0.15068 | 0.35624 |
+| Item CF | 0.03781 | 0.21331 | 0.13731 | 0.97260 | 0.79026 |
+| Content | 0.02420 | 0.13533 | 0.08460 | 0.28082 | 0.23913 |
+| Hybrid | 0.03696 | 0.20821 | 0.13679 | 0.94521 | 0.81786 |
+| Two-tower, full | 0.03743 | 0.21113 | 0.13407 | 0.60959 | 0.75198 |
 
-CF has the best NDCG in this run; the hybrid is not universally superior. Coverage measures the fraction of available items ever recommended; diversity is mean pairwise cosine distance. Simulation design can favour particular methods, so these scores should not be used as real-market performance claims.
+Item CF has the highest NDCG among these rows. The two-tower BPR ablation reaches 0.14087 NDCG@10 in this run, but uses one recommender seed. No result establishes real-market preference or commercial uplift.
 
-Forecast models are selected per SKU using three rolling origins, each with a four-week validation horizon. An untouched eight-week holdout reports **62.79% volume-weighted WAPE**, **75.16% sMAPE** and **0.746 mean per-SKU MASE**. WAPE is undefined when actual demand is zero; MASE is undefined for a constant history and is omitted from the average. New/slow SKUs are difficult and handled separately.
+| Search method | MRR@10 | NDCG@10 | Draft queries | Human-reviewed |
+| --- | ---: | ---: | ---: | ---: |
+| BM25 | 0.93889 | 0.93562 | 60 | 0 |
+| Dense MiniLM | 0.92183 | 0.88918 | 60 | 0 |
+| Hybrid reciprocal-rank fusion | 0.95278 | 0.93623 | 60 | 0 |
 
-| Interval | Nominal | Measured holdout coverage |
-| --- | ---: | ---: |
-| 80% band | 80% | 82.87% |
-| 95% band | 95% | 94.44% |
+These labels test the search pipeline and overlap with catalogue text. They are not observed shopper relevance judgements.
 
-Intervals use pooled normalized validation residuals and widen beyond the calibrated four-week horizon. Aggregate bands sum SKU bounds and are conservative, **not nominally calibrated joint intervals**. Revenue forecasts use current list prices; the admin sales KPI/chart uses actual transaction prices. The selected-model WAPE is volume weighted; individual ladder scores shown in the dashboard are macro SKU averages and must not be compared as identical metrics.
+| Forecast group | Model | WAPE | sMAPE | MASE | Interval coverage |
+| --- | --- | ---: | ---: | ---: | ---: |
+| SKU | LSTM, 3 seeds | 86.70% | 102.73% | 0.795 | 89.75% |
+| Category | Seasonal naive | 14.75% | 21.55% | 0.933 | 27.08% |
 
-Training diagnostics for the neural experiments are saved in `backend/artifacts/evaluation.json`; they are not independent recommendation evaluations. Price-response coefficients are promotion-confounded and noncausal. A/B conversions are sampled from user-entered rates, not actual measured recommender uplift. Validation on a public retail dataset is optional future work and has not been performed.
+Forecast scores average three expanding test origins and the first four weeks at each origin. Category interval coverage is poor in this run. LSTM and N-BEATS use learned P10/P50/P90 outputs; baseline bands use validation residuals. These are evaluation results on generated weekly demand, not live sales or calibrated stock guarantees. Full tables and protocols are in [`ml/reports/`](ml/reports/) and the [model cards](docs/model-cards.md).
 
-## Checks and evidence
+## Run locally without Docker
 
-```bash
-cd backend
-python -m pytest tests -q
-python benchmark.py
-cd ../frontend
-npm run build
-npx playwright install chromium
-# Start the API and Vite before running locally:
-npx playwright test
-```
+Prerequisites: Python 3.12, Node.js 22+, and a running native PostgreSQL database. Use a **new empty development database**; the seed command deliberately does not overwrite an existing catalogue. Copy `backend/.env.example` to `backend/.env`, set `DATABASE_URL`, and choose a unique `ADMIN_PASSWORD` before seeding.
 
-The delivered evaluation JSON and training log contain actual run results. [Verification report](reports/verification.md) separates local, CI and live evidence. [GitHub CI run 37198738709](https://github.com/TeddyQyuon/scenthaus-intelligence/actions/runs/37198738709) passed **30 Python tests against native PostgreSQL 16**, including concurrent checkout, **three Playwright journeys**, and the frontend build. It regenerates and trains the simulated dataset before testing. Production browser checks passed for the homepage, wishlist/cart reloads, quiz, demo checkout, consent withdrawal and guest admin gate. [Production API smoke results](reports/production-api-smoke.json) record 17 successful checks, including authenticated forecasting, inventory, exports and model health. These smoke checks do not establish concurrent production capacity or an internet latency under 200 ms.
+1. Install the Python and frontend dependencies:
 
-## API
+   ```bash
+   python3.12 -m venv .venv && source .venv/bin/activate && \
+     python -m pip install torch==2.9.0 --index-url https://download.pytorch.org/whl/cpu && \
+     python -m pip install -r backend/requirements-training.txt && \
+     (cd frontend && npm ci)
+   ```
 
-Session establishment: `GET /auth/session` returns a CSRF token and an opaque HttpOnly session cookie. All mutations require the cookie, the returned `X-CSRF-Token` and an allowlisted Origin. Accounts use Argon2 password hashes; login/register rotate sessions. All admin and forecast routes enforce the admin role in Python.
+2. Migrate the empty database, generate the simulated dataset and train the serving models:
 
-| Endpoint | Purpose |
+   ```bash
+   cd backend && PYTHONPATH=..:. ../.venv/bin/alembic upgrade head && \
+     PYTHONPATH=..:. ../.venv/bin/python -m app.seed && \
+     PYTHONPATH=..:. ../.venv/bin/python -m ml.train_all
+   ```
+
+3. From the repository root, start the API, storefront and local MLflow process:
+
+   ```bash
+   source .venv/bin/activate && python scripts/dev.py
+   ```
+
+Storefront: `http://localhost:5173` · API: `http://localhost:8000` · MLflow: `http://localhost:5000`.
+
+## Vercel deployment
+
+Deploy from the repository root. `vercel.json` routes `/api/*` to FastAPI and storefront paths to the React SPA. The API build uses a temporary training environment with CPU PyTorch, migrates a dedicated database, seeds only an empty catalogue, trains the versioned bundle and downloads the pinned ONNX query encoder. Generated model weights are not committed to Git. The deployed function uses the smaller runtime dependency set and does not train on requests.
+
+Set these Vercel environment variables for the relevant environment:
+
+| Variable | Purpose |
 | --- | --- |
-| GET /recommend/similar?product_id=1 | Nearby scents |
-| GET /recommend/also-bought?product_id=1 | Item CF |
-| GET /recommend/user | Hybrid preferences; optional experiment=two_tower/item2vec |
-| POST /recommend/quiz | mood, occasion, intensity, budget and optional size |
-| GET /recommend/cart | Basket association rules, hybrid fallback |
-| GET /recommend/substitutes?product_id=7 | In-stock alternatives |
-| GET /forecast/sku?sku=SH-001-50&horizon=8 | Admin-only SKU forecast |
-| GET /forecast/summary?group=brand&key=Atelier%2008 | Admin-only aggregate |
-| POST /events | Consented view/impression/click; minted recommendation references for attribution |
-| GET /search?q=fresh%20office%20scent%20under%20$150 | Latent semantic search with price/size constraints |
+| `DATABASE_URL` | Pooled TLS PostgreSQL URL for API requests. |
+| `DATABASE_URL_UNPOOLED` | Direct PostgreSQL URL for the build-time advisory lock. |
+| `ENVIRONMENT` | Set to `production`. |
+| `SECRET_KEY` | Unique random secret, at least 32 characters. |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Initial administrator created by the empty-database seed. |
+| `CRON_SECRET` | Bearer secret for daily maintenance. |
+| `ALLOWED_ORIGINS` | Exact HTTPS storefront origin. |
 
-Catalogue, wishlist, bag, orders, consent/export and admin endpoints appear in development OpenAPI. A quiz match % is cosine accord alignment, not a probability of liking the fragrance. Stock and visibility are checked live, while static content/CF similarities are precomputed and cached. Checkout locks the user row, checks a unique idempotency key and conditionally decrements stock in one transaction.
+Use a separate empty database for Preview and Production; never expose production database credentials to branch previews. The build checks that the catalogue matches this 150-product release and stops if it finds an older or mixed catalogue. It preserves existing records and explains when a clean database is required. See [deployment steps and current hosting evidence](docs/deployment.md).
 
-## Deployment
+## Privacy and model limits
 
-[Deployment guide](docs/deployment.md) explains the Vercel Services topology, hosted PostgreSQL setup, immutable trained artifacts and separate training jobs. The frontend and Python API share the same HTTPS origin. The existing Docker/Render/Railway files remain optional alternatives and are not used for Vercel hosting.
+Personalization is off until a shopper opts in. Without consent, quiz answers are used for that request only and are not saved. Consent withdrawal deletes tracked events, quiz profile and recommendation references; wishlist, bag and demo orders remain available for account functionality. Training reads only consented pseudonymous interactions. Previously trained aggregate contributions are removed when the next model build uses the updated consented dataset.
 
-## References
+The system is a portfolio demonstration, not a real fragrance retailer. It does not verify stock or authenticity, assess product suitability, process real payments, or make purchase and replenishment decisions without human review. See [governance notes](docs/governance.md) and [deployment evidence](reports/deployment.md).
 
-- [FastAPI](https://fastapi.tiangolo.com/), [SQLAlchemy](https://docs.sqlalchemy.org/en/20/orm/quickstart.html), [Vite](https://vite.dev/guide/)
-- [TF-IDF](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html), [LightGBM](https://lightgbm.readthedocs.io/en/stable/Python-API.html), [MLflow tracking](https://mlflow.org/docs/latest/ml/tracking/)
-- [Singapore 2026 holidays, MOM](https://www.mom.gov.sg/newsroom/press-releases/2025/0616-public-holidays-for-2026) and [2027 holidays, MOM](https://www.mom.gov.sg/newsroom/press-releases/2026/0618-public-holidays-for-2027). Calendar dates cover 2024–2027; unknown future years fail until verified dates are added.
-- [Singapore Model AI Governance Framework, IMDA](https://www.imda.gov.sg/-/media/imda/files/infocomm-media-landscape/sg-digital/tech-pillars/artificial-intelligence/second-edition-of-the-model-ai-governance-framework-22jan.pdf)
-- [Vercel Vite deployment](https://vercel.com/docs/frameworks/frontend/vite), [external rewrites](https://vercel.com/docs/routing/rewrites), [Render Blueprint](https://render.com/docs/blueprint-spec), [Compose startup order](https://docs.docker.com/compose/how-tos/startup-order/)
+## Checks
 
-## Phased rebuild (no Docker)
+GitHub Actions uses native PostgreSQL, trains the simulated fixture, runs the Python/ML tests and lint, starts the API for three Playwright journeys, and builds the storefront. Local browser tests can be run with `cd frontend && npx playwright install chromium && npm test` after training and starting the API. The latest run and detailed evidence are linked in [verification](reports/verification.md).
 
-The React/Vite and FastAPI base has been recovered from the published repository. `PLAN.md` records freshly rerun phase checks. Development and Vercel hosting use native processes and managed PostgreSQL, as requested.
+## Project documents
 
-Catalog details: real bottle sizes are taken from source variant metadata. Unknown concentrations are explicitly marked Unverified. Key notes are sourced without inventing a note pyramid. Longevity and sillage are unrated; season/occasion/accord suggestions are curated annotations. Nothing here authenticates a supplier or enables real payment collection.
-
-Rebuilt baseline evaluations: [`ml/reports/baselines.md`](ml/reports/baselines.md). Fresh seed reproduces the full dataset hash and all metrics; shared split is 52/13/13 weeks and K=10. CF NDCG@10 = 0.13731 versus popularity 0.10609. Category seasonal naive WAPE = 14.75%, LightGBM = 18.95% on rolling test origins; sparse SKU errors and poor aggregate interval calibration are reported. Older tables below describe the published fictional catalog and will be replaced when the rebuild is complete.
-
-Phase 3: actual PyTorch two-tower model, causal histories, MiniLM content, quiz cold starts and ablations are complete. [Recommender report](ml/reports/recommender.md): CF NDCG@10 0.13731 beats full two-tower 0.13406. Fifteen ML tests pass; local warm user/similar p95 31.34/22.73 ms. Torch and sentence-transformers are training dependencies; cached request scoring uses NumPy.
-
-Phase 4: actual MiniLM/BM25/RRF semantic search and live SQL price/size/gender/season filters. Sixty draft query labels require manual review. GitHub native PostgreSQL verification: 19 ML tests and ruff pass; comparison is in ml/reports/search.md. No new dependency beyond sentence-transformers.
-
-Phase 5: global PyTorch LSTM and generic N-BEATS quantile models, three seeds each, twelve-week cached forecasts and protected API model selection. [Forecast report](ml/reports/forecast.md) reports the shared rolling backtests: SKU WAPE LSTM 86.70%, N-BEATS 90.33%, LightGBM 97.44%; category seasonal naive 14.75% beats both neural models. All data is SIMULATED. Four-week evaluation does not establish twelve-week accuracy; aggregate bounds and approximate 95% intervals are not calibrated guarantees. Sixteen phase tests and ruff pass locally. No new dependencies.
+- [Model cards](docs/model-cards.md)
+- [Architecture](docs/architecture.md)
+- [Human involvement and risk](docs/governance.md)
+- [Feature matrix](docs/feature-matrix.md)
+- [Portfolio entry](docs/portfolio-entry.md)
+- [Vercel deployment](docs/deployment.md)

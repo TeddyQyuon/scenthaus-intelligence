@@ -1,5 +1,7 @@
 """Popularity/CF/BM25 and forecast baselines on one time-based harness."""
 
+from .tracking import tracked
+
 import numpy as np
 import pandas as pd
 from lightgbm import LGBMRegressor
@@ -230,6 +232,7 @@ def predict_forecast(model, y, dates, meta, end, h):
     return np.array(out).T
 
 
+@tracked("baselines")
 def train() -> dict:
     d = snapshot()
     c = config("baselines")

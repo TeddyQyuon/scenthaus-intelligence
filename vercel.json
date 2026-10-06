@@ -14,11 +14,12 @@
       "root": "backend",
       "framework": "fastapi",
       "entrypoint": "main:app",
-      "buildCommand": "python -m app.vercel_init",
+      "buildCommand": "python -m app.vercel_build",
       "functions": {
         "main.py": {
           "maxDuration": 60,
-          "excludeFiles": "{tests/**,mlruns/**,mlflow.db*,.venv/**,artifacts/dataset.json,app/ml/train.py,app/ml/forecast.py,app/worker.py}"
+          "includeFiles": "{artifacts/**,app/real_catalog.json,ml/*.py,ml/configs/**}",
+          "excludeFiles": "{tests/**,mlruns/**,mlflow.db*,.venv/**,artifacts/dataset.json,app/ml/train.py,app/ml/forecast.py,app/worker.py,ml/data/**,ml/reports/**,ml/tests/**}"
         }
       }
     }

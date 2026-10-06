@@ -5,6 +5,8 @@ calendar/price covariates and ordered quantile heads. It is not a reproduction
 of the paper's interpretable trend/seasonality architecture or benchmark.
 """
 
+from .tracking import tracked
+
 from copy import deepcopy
 from functools import lru_cache
 import json
@@ -215,6 +217,7 @@ def predict(model, y, dates, meta, availability, origin, scale, c):
     return result * scale[:, None, None]
 
 
+@tracked("forecast")
 def train() -> dict:
     d, c = snapshot(), config("forecast")
     y, dates, meta, availability = panel(d)

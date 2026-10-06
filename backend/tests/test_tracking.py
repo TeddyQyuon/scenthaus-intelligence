@@ -9,7 +9,7 @@ def test_saved_forecast_reconciles_completed_week(admin):
     with SessionLocal() as db:
         row = ForecastSnapshot(
             version="test-reconciliation",
-            sku="SH-001-30",
+            sku="SH-001-60",
             origin=date(2026, 7, 27),
             target_week=date(2026, 8, 3),
             prediction=2,
@@ -29,13 +29,13 @@ def test_saved_forecast_reconciles_completed_week(admin):
                 .join(Order, OrderItem.order_id == Order.id)
                 .join(Variant, OrderItem.variant_id == Variant.id)
                 .where(
-                    Variant.sku == "SH-001-30",
+                    Variant.sku == "SH-001-60",
                     Order.created_at >= datetime(2026, 8, 3),
                     Order.created_at < datetime(2026, 8, 10),
                 )
             )
             assert db.get(ForecastSnapshot, rid).actual == actual
-        rows = admin.get("/admin/tracking?sku=SH-001-30").json()["live"]
+        rows = admin.get("/admin/tracking?sku=SH-001-60").json()["live"]
         assert any(
             r["version"] == "test-reconciliation" and r["actual"] == actual
             for r in rows
