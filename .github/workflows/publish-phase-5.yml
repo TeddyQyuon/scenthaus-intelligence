@@ -1,21 +1,49 @@
-name: Preserve verified forecasting phase
+name: Publish prepared real-catalog release
 on:
   push:
     branches: [restore-workspace]
-    paths: [phase-5.bundle, .github/workflows/publish-phase-5.yml]
+    paths: [release-source.bundle, release-manifest.json, .github/workflows/publish-phase-5.yml]
 permissions:
   contents: write
+concurrency:
+  group: scenthaus-source-publish
+  cancel-in-progress: false
 jobs:
   preserve:
+    if: github.repository == 'TeddyQyuon/scenthaus-intelligence'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with: {fetch-depth: 0}
-      - name: Restore and fast-forward the verified phase commit
+      - name: Validate the prepared source manifest and bundle
+        id: release
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import re
+
+          manifest = json.loads(Path('release-manifest.json').read_text())
+          assert manifest['branch'] == 'complete-phases-real-catalog', 'Unexpected target branch'
+          assert re.fullmatch(r'[0-9a-f]{40}', manifest['commit']), 'Invalid source commit'
+          assert re.fullmatch(r'[0-9a-f]{64}', manifest['bundle_sha256']), 'Invalid bundle digest'
+          digest = hashlib.sha256(Path('release-source.bundle').read_bytes()).hexdigest()
+          assert digest == manifest['bundle_sha256'], 'Bundle checksum mismatch'
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('commit=' + manifest['commit'] + '\n')
+          print('Verified prepared source: ' + manifest['commit'])
+          PY
+      - name: Fast-forward the feature branch to the original prepared commits
+        env:
+          SOURCE_SHA: ${{ steps.release.outputs.commit }}
         run: |
           set -euo pipefail
           git fetch origin complete-phases-real-catalog
-          git fetch ./phase-5.bundle refs/heads/complete-phases-real-catalog:refs/remotes/recovered/phase5
-          test "$(git rev-parse refs/remotes/recovered/phase5)" = 'bdc7653b6ccc12f8bea398d56c32adec0e9dcd47'
-          git merge-base --is-ancestor origin/complete-phases-real-catalog refs/remotes/recovered/phase5
-          git push origin refs/remotes/recovered/phase5:refs/heads/complete-phases-real-catalog
+          git bundle verify ./release-source.bundle
+          git fetch ./release-source.bundle refs/heads/complete-phases-real-catalog:refs/remotes/recovered/release
+          test "$(git rev-parse refs/remotes/recovered/release)" = "$SOURCE_SHA"
+          git merge-base --is-ancestor origin/complete-phases-real-catalog refs/remotes/recovered/release
+          git push origin refs/remotes/recovered/release:refs/heads/complete-phases-real-catalog
