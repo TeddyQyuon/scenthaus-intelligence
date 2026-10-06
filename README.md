@@ -28,7 +28,8 @@ The browser uses one origin for the storefront and `/api`. PostgreSQL owns accou
 
 ## Features
 
-- Browse and filter real fragrance references by brand, notes, size, budget, season and stock annotation.
+- Browse a searchable directory of all 35 fragrance houses. Brand links open the filtered collection directly, including on mobile.
+- Browse and filter real fragrance references by brand, notes, size, budget, season and stock annotation in a beauty-retail storefront, with quick add-to-bag actions.
 - Use hybrid recommendations, an accord-based quiz, similar-scent suggestions and natural-language search with example queries.
 - Save a wishlist and bag to the account; place a simulated order without payment.
 - Review demand forecasts, model comparisons, interval bands, inventory signals, model version and method notes in the protected admin area.
