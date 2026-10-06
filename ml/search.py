@@ -1,5 +1,7 @@
 """MiniLM dense retrieval + BM25 RRF; draft relevance is not human ground truth."""
 
+from .tracking import tracked
+
 from functools import lru_cache
 from pathlib import Path
 import json
@@ -209,6 +211,7 @@ def draft_queries(d: dict) -> list[dict]:
     return records
 
 
+@tracked("search")
 def main() -> dict:
     from app.database import SessionLocal
 

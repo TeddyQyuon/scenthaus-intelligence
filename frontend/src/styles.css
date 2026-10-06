@@ -1124,6 +1124,12 @@ td {
 .admin-heading .eyebrow {
   font-size: 9px;
 }
+.admin-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
 .admin-filters {
   display: flex;
   gap: 14px;
@@ -1539,6 +1545,10 @@ td {
     font-size: 11px;
     padding: 10px;
   }
+  .admin-actions {
+    align-items: flex-end;
+    flex-shrink: 0;
+  }
   .panel {
     padding: 20px 16px;
   }
@@ -1717,5 +1727,81 @@ td {
       rgba(15, 17, 13, 0.48) 65%,
       rgba(15, 17, 13, 0.06) 100%
     );
+  }
+}
+
+.reason-chips,
+.search-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.reason-chips span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--olive);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  padding: 6px 10px;
+}
+.search-chips button {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 9px 13px;
+}
+.search-chips button:hover,
+.search-chips button:focus-visible {
+  border-color: var(--olive);
+  background: #f2f2eb;
+}
+.model-info-button {
+  margin-top: 12px;
+}
+.model-dialog {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink);
+  max-height: 85vh;
+  max-width: min(640px, calc(100vw - 32px));
+  padding: clamp(22px, 5vw, 42px);
+  width: 100%;
+}
+.model-dialog::backdrop {
+  background: rgb(18 20 16 / 58%);
+}
+.model-dialog h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(26px, 5vw, 38px);
+  font-weight: 400;
+}
+.model-dialog dl {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 8px 14px;
+  overflow-wrap: anywhere;
+}
+.model-dialog dt {
+  color: #707469;
+}
+.model-dialog dd {
+  margin: 0;
+}
+.model-dialog form {
+  margin-top: 24px;
+}
+@media (max-width: 600px) {
+  .model-dialog dl {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .model-dialog dd {
+    margin-bottom: 12px;
   }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowUpRight,
   Download,
@@ -28,6 +28,7 @@ import {
 import { useShop } from "./context";
 import { api, money, message, download } from "./api";
 import { ErrorBox, MetricsTable } from "./App";
+import ModelInfo from "./ModelInfo";
 const tabs = [
   ["Overview", LayoutDashboard],
   ["Forecasts", TrendingUp],
@@ -38,6 +39,27 @@ const tabs = [
   ["Product controls", SlidersHorizontal],
   ["Model health", Activity],
 ];
+const tabPaths = {
+  Overview: "/admin",
+  Forecasts: "/admin/forecast",
+  Inventory: "/admin/inventory",
+  Customers: "/admin/customers",
+  Recommendations: "/admin/recommendations",
+  Experiments: "/admin/experiments",
+  "Product controls": "/admin/product-controls",
+  "Model health": "/admin/model-health",
+};
+const modelLabels = {
+  seasonal_naive: "Seasonal naive",
+  lightgbm: "LightGBM",
+  lstm: "LSTM",
+  nbeats: "N-BEATS",
+};
+const percent = (value) =>
+  Number.isFinite(value) ? `${value.toFixed(2)}%` : "—";
+const decimal = (value) => (Number.isFinite(value) ? value.toFixed(3) : "—");
+const coverage = (value) =>
+  Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : "—";
 function Table({ rows, columns }) {
   return (
     <div className="table-wrap">
@@ -63,8 +85,11 @@ function Table({ rows, columns }) {
     </div>
   );
 }
-function ForecastChart({ data, revenue = false }) {
+function ForecastChart({ data, revenue = false, model = "lightgbm" }) {
   if (!data) return null;
+  const innerBandLabel = ["lstm", "nbeats"].includes(model)
+    ? "P10–P90 learned band"
+    : "80% validation interval";
   const rows = [
     ...data.history
       .slice(-26)
@@ -83,7 +108,7 @@ function ForecastChart({ data, revenue = false }) {
     <div
       className="chart"
       role="img"
-      aria-label="Weekly history, forecast and 80 and 95 percent uncertainty bands"
+      aria-label={`Weekly history, ${modelLabels[model] || model} forecast, ${innerBandLabel} and approximate 95 percent interval`}
     >
       <ResponsiveContainer width="100%" height={360}>
         <ComposedChart
@@ -115,7 +140,7 @@ function ForecastChart({ data, revenue = false }) {
           <Area
             isAnimationActive={false}
             dataKey="band95"
-            name="95% interval"
+            name="Approximate 95% interval"
             stroke="none"
             fill="#abb79d"
             fillOpacity={0.2}
@@ -123,7 +148,7 @@ function ForecastChart({ data, revenue = false }) {
           <Area
             isAnimationActive={false}
             dataKey="band80"
-            name="80% interval"
+            name={innerBandLabel}
             stroke="none"
             fill="#7f946c"
             fillOpacity={0.35}
@@ -180,13 +205,19 @@ function SalesChart({ rows }) {
 }
 export default function Admin() {
   const { user, notify } = useShop(),
-    [tab, setTab] = useState("Overview"),
+    location = useLocation(),
+    navigate = useNavigate(),
     [data, setData] = useState(null),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(false),
     [dates, setDates] = useState({ start: "2024-09-30", end: "2026-10-03" }),
     [forecast, setForecast] = useState(null),
-    [choice, setChoice] = useState({ group: "all", key: "", horizon: 8 }),
+    [choice, setChoice] = useState({
+      group: "all",
+      key: "",
+      horizon: 8,
+      model: "lightgbm",
+    }),
     [revenue, setRevenue] = useState(false),
     [risk, setRisk] = useState(""),
     [ab, setAb] = useState({
@@ -197,6 +228,13 @@ export default function Admin() {
     }),
     [abResult, setAbResult] = useState(null),
     [experiment, setExperiment] = useState("two_tower");
+  const tab =
+    Object.entries(tabPaths).find(([, path]) => path === location.pathname)?.[0] ||
+    "Overview";
+  function setTab(label) {
+    navigate(tabPaths[label] || "/admin");
+    setError("");
+  }
   async function load() {
     if (user.role !== "admin") return;
     setLoading(true);
@@ -235,7 +273,11 @@ export default function Admin() {
       .get(url, {
         params:
           choice.group === "sku"
-            ? { sku: choice.key, horizon: choice.horizon }
+            ? {
+                sku: choice.key,
+                horizon: choice.horizon,
+                model: choice.model,
+              }
             : choice,
       })
       .then((r) => active && setForecast(r.data))
@@ -337,10 +379,16 @@ export default function Admin() {
               A portfolio demonstration · SGD · No real customer history
             </p>
           </div>
-          <button className="outline" disabled={loading} onClick={load}>
-            <RefreshCw size={16} />
-            {loading ? "Refreshing…" : "Refresh"}
-          </button>
+          <div className="admin-actions">
+            <button className="outline" disabled={loading} onClick={load}>
+              <RefreshCw size={16} />
+              {loading ? "Refreshing…" : "Refresh"}
+            </button>
+            <ModelInfo
+              version={data?.monitor?.model_version}
+              model={modelLabels[choice.model] || choice.model}
+            />
+          </div>
         </div>
         <ErrorBox error={error} />
         {!data ? (
@@ -413,7 +461,7 @@ export default function Admin() {
                 </section>
                 <section className="panel">
                   <h3>Revenue outlook & uncertainty</h3>
-                  <ForecastChart data={forecast} revenue />
+                  <ForecastChart data={forecast} revenue model={choice.model} />
                   <p className="metadata">
                     Forecasts use current prices. Aggregate bands sum SKU
                     intervals and are conservative.
@@ -454,6 +502,24 @@ export default function Admin() {
             {tab === "Forecasts" && (
               <>
                 <div className="admin-filters">
+                  <label>
+                    Model
+                    <select
+                      aria-label="Forecast model"
+                      value={choice.model}
+                      onChange={(e) =>
+                        setChoice((c) => ({ ...c, model: e.target.value }))
+                      }
+                    >
+                      {Object.keys(evalData.forecast.comparison || {}).map(
+                        (model) => (
+                          <option key={model} value={model}>
+                            {modelLabels[model] || model}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </label>
                   <label>
                     Level
                     <select
@@ -527,9 +593,13 @@ export default function Admin() {
                 <section className="panel">
                   <h3>
                     Weekly {revenue ? "revenue" : "demand"} ·{" "}
-                    {choice.key || "All SKUs"}
+                    {choice.key || "All SKUs"} · {modelLabels[choice.model] || choice.model}
                   </h3>
-                  <ForecastChart data={forecast} revenue={revenue} />
+                  <ForecastChart
+                    data={forecast}
+                    revenue={revenue}
+                    model={choice.model}
+                  />
                   <p className="metadata">
                     {forecast?.interval_note || evalData.forecast.interval_note}
                   </p>
@@ -537,11 +607,29 @@ export default function Admin() {
                     rows={forecast?.forecast}
                     columns={[
                       ["week", "Week"],
-                      ["prediction", "Units", (n) => n.toFixed(1)],
-                      ["lower80", "80% lower", (n) => n.toFixed(1)],
-                      ["upper80", "80% upper", (n) => n.toFixed(1)],
-                      ["lower95", "95% lower", (n) => n.toFixed(1)],
-                      ["upper95", "95% upper", (n) => n.toFixed(1)],
+                      [
+                        "lower80",
+                        ["lstm", "nbeats"].includes(choice.model)
+                          ? "P10"
+                          : "80% lower",
+                        (n) => Number(n).toFixed(1),
+                      ],
+                      [
+                        "prediction",
+                        ["lstm", "nbeats"].includes(choice.model)
+                          ? "P50 / median"
+                          : "Forecast",
+                        (n) => Number(n).toFixed(1),
+                      ],
+                      [
+                        "upper80",
+                        ["lstm", "nbeats"].includes(choice.model)
+                          ? "P90"
+                          : "80% upper",
+                        (n) => Number(n).toFixed(1),
+                      ],
+                      ["lower95", "Approx. 95% lower", (n) => Number(n).toFixed(1)],
+                      ["upper95", "Approx. 95% upper", (n) => Number(n).toFixed(1)],
                       ["revenue", "Revenue", money],
                     ]}
                   />
@@ -582,25 +670,42 @@ export default function Admin() {
                   <p className="metadata">Forecasts are saved before outcomes arrive. Refresh after the daily worker reconciles completed weeks.</p>
                 </section>
                 <section className="panel">
-                  <h3>Model ladder</h3>
+                  <h3>Forecast accuracy by model</h3>
                   <Table
-                    rows={Object.entries(
-                      evalData.forecast.model_macro_sku_wape,
-                    ).map(([model, wape]) => ({
-                      model,
-                      wape,
-                      count: evalData.forecast.selection_counts[model],
-                    }))}
+                    rows={Object.entries(evalData.forecast.comparison || {}).map(
+                      ([model, groups]) => ({
+                        model,
+                        skuWape: groups.sku?.mean?.wape,
+                        categoryWape: groups.category?.mean?.wape,
+                        skuSmape: groups.sku?.mean?.smape,
+                        categorySmape: groups.category?.mean?.smape,
+                        skuMase: groups.sku?.mean?.mase,
+                        categoryMase: groups.category?.mean?.mase,
+                        skuCoverage: groups.sku?.mean?.coverage80,
+                        categoryCoverage: groups.category?.mean?.coverage80,
+                        seeds: groups.sku?.seeds,
+                      }),
+                    )}
                     columns={[
-                      ["model", "Model"],
-                      ["wape", "Macro SKU WAPE", (n) => `${n.toFixed(1)}%`],
-                      ["count", "Selected SKUs"],
+                      ["model", "Model", (v) => modelLabels[v] || v],
+                      ["skuWape", "SKU WAPE", percent],
+                      ["categoryWape", "Category WAPE", percent],
+                      ["skuSmape", "SKU sMAPE", percent],
+                      ["categorySmape", "Category sMAPE", percent],
+                      ["skuMase", "SKU MASE", decimal],
+                      ["categoryMase", "Category MASE", decimal],
+                      ["skuCoverage", "SKU interval coverage", coverage],
+                      ["categoryCoverage", "Category interval coverage", coverage],
+                      ["seeds", "Seeds"],
                     ]}
                   />
                   <p className="metadata">
-                    Macro SKU scores are not directly comparable to
-                    volume-weighted selected-model WAPE. Model selection uses
-                    three expanding validation origins.
+                    WAPE and sMAPE are percentages; MASE is scale-free. SKU
+                    and category scores are separate. Interval coverage refers
+                    to the 80% validation interval for baselines and the
+                    learned P10–P90 band for neural models. All models use the
+                    same time-based test origins; the baseline remains visible
+                    even when a neural model performs better.
                   </p>
                 </section>
               </>
@@ -988,10 +1093,10 @@ export default function Admin() {
                     ]}
                   />
                   <p className="metadata">
-                    Active version {data.monitor.model_version}. Weekly Sunday
-                    retraining at 03:00 Singapore time; validation gates
-                    activation. Daily retention and forecast reconciliation at
-                    04:00.
+                    Active version {data.monitor.model_version}. The optional
+                    GitHub workflow produces reviewable simulated-data
+                    candidates; it does not update Production. Daily retention
+                    and forecast reconciliation run at 04:00 Singapore time.
                   </p>
                 </section>
                 <section className="panel">

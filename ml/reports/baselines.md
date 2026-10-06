@@ -2,7 +2,7 @@
 
 Users, orders and events are **SIMULATED**.
 
-Hash `c9cda91a8a36d0a0751755cc0fe67e026a7a2bf8398359cbac4e626753daf1fc`. Train/validation/test: 52/13/13 weeks, exclusive cutoffs 2026-03-30 / 2026-06-29 / 2026-09-28. K=10; novel purchase targets; no future wishlist/event signals. CF uses orders and wishlists/events. Hybrid weights [0.2, 0.7, 0.1] selected on validation only. BM25 is implemented and tested; query-quality evaluation is deferred to the manually reviewable labels in Phase 4. Forecast origins [65, 69, 73], 4-week horizon; rolling origins refit on observed prefixes. WAPE/sMAPE in percent, MASE uses 52-week seasonal scale (fallback lag 1 only for short histories), coverage of validation-residual 80% intervals. SKU and category scores are separate, not double counted; intervals pooled across heterogeneous series may be poorly calibrated. Zero-demand WAPE and constant-history MASE are undefined, never reported as zero error.
+Hash `15589597379a864309b5db3ce8e995894c7fa02af58b23848297989141c8faca`. Train/validation/test: 52/13/13 weeks, exclusive cutoffs 2026-03-30 / 2026-06-29 / 2026-09-28. K=10; novel purchase targets; no future wishlist/event signals. CF uses orders and wishlists/events. Hybrid weights [0.2, 0.7, 0.1] selected on validation only. BM25 is implemented and tested; query-quality evaluation is deferred to the manually reviewable labels in Phase 4. Forecast origins [65, 69, 73], 4-week horizon; rolling origins refit on observed prefixes. WAPE/sMAPE in percent, MASE uses 52-week seasonal scale (fallback lag 1 only for short histories), coverage of validation-residual 80% intervals. SKU and category scores are separate, not double counted; intervals pooled across heterogeneous series may be poorly calibrated. Zero-demand WAPE and constant-history MASE are undefined, never reported as zero error.
 
 | Task | Model | precision | recall | ndcg | mrr | coverage | brand_diversity | users | wape | smape | mase | coverage80 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -14,9 +14,3 @@ Hash `c9cda91a8a36d0a0751755cc0fe67e026a7a2bf8398359cbac4e626753daf1fc`. Train/v
 | category forecast | seasonal_naive | undefined | undefined | undefined | undefined | undefined | undefined | undefined | 14.74752 | 21.54560 | 0.93329 | 0.27083 |
 | sku forecast | lightgbm | undefined | undefined | undefined | undefined | undefined | undefined | undefined | 97.44225 | 141.71452 | 0.96700 | 0.84007 |
 | category forecast | lightgbm | undefined | undefined | undefined | undefined | undefined | undefined | undefined | 18.95244 | 21.78786 | 1.02756 | 0.12500 |
-
-| Done check | Result |
-|---|---|
-| Fresh-seed reproduction | Same hash, tuned weights and every recommender/forecast metric |
-| `pytest ml/tests -q` through PostgreSQL protocol fixture | 11 passed |
-| `ruff check .` | Clean |

@@ -5,3 +5,4 @@ mlflow==3.16.1
 pytest==9.0.2
 ruff==0.14.14
 httpx[socks]==0.28.1
+python-dotenv==1.2.4

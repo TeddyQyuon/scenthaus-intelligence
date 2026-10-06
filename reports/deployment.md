@@ -1,19 +1,25 @@
-# Hosting evidence
+# Deployment status
 
-Verified on 4 October 2026. Historical sales/users are simulated; demo checkout collects no payment.
+**Checked 2026-10-05. The current real-catalogue source is not live.** The public Vercel domain still answers with the older invented-catalogue application.
 
-- Live application: https://scenthaus-intelligence.vercel.app/
-- Source: https://github.com/TeddyQyuon/scenthaus-intelligence
-- Portfolio case study: https://teddy-qyuon-portfolio.vercel.app/projects/scenthaus-intelligence
-- Application revision verified in production: `2cced1a436251a9b42c012315a17766c1ede6903`; Vercel deployment `dpl_4wgqRid4dTWrQE6ytk9eRcVNHu9e` was READY. Later documentation/calendar commits do not change the shopping flow.
-- React/Vite and Python FastAPI share one Vercel Services project and HTTPS origin. Python functions run in Singapore (`sin1`). Docker is not used for hosting.
-- Dedicated `scenthaus-postgres` Neon database: Free plan, Singapore, Neon Auth disabled, connected to this project's production environment only. The user approved Marketplace terms before creation. Preview deployments have no production database credentials.
-- Runtime secrets are encrypted project variables; database connection variables are sensitive. They are absent from source control. Initialization uses a direct connection for its session advisory lock and a pooled connection for application requests.
-- First initialization loaded 36 products, 108 SKUs, 2,000 fictional customers, 12,139 simulated orders and 90,495 events. Bulk insertion retained the original data fingerprint. A subsequent build logged `Catalogue exists; seed is idempotent.` and preserved persisted shopping state.
-- The bundled model is checksum verified. `/api/health` returned `status=ok`, `models_ready=true`, `demo_mode=true`.
-- Production cloud-browser checks passed: homepage and bottle images, catalogue/product detail, wishlist after reload, quiz matches, selected-size bag after reload, a saved demo order with inventory update, consent on/off persistence, and guest admin gate.
-- [Production API smoke evidence](production-api-smoke.json): 17 checks passed, covering session/CSRF admin sign-in, SKU and aggregate forecasts, inventory, segments, evaluation, model versions, forecast tracking, monitoring, CSV export and logout. Missing session, guest role and unauthenticated maintenance returned their expected 401/403 responses.
-- Vercel runtime log inspection found no 5xx entries in the verification window. This is a smoke check, not a capacity, uptime or production-latency guarantee.
-- [GitHub CI run 37198738709](https://github.com/TeddyQyuon/scenthaus-intelligence/actions/runs/37198738709) passed native PostgreSQL 16 training/tests and browser journeys for the verified application revision.
+## Observed state
 
-Daily authenticated Vercel maintenance is configured at 04:00 Singapore. No completed scheduled-cron invocation is claimed at delivery time. Weekly model training is supplied in `retrain.yml`, but remains **disabled**: automatic approval review blocked storing the production database URL as `SCENTHAUS_DATABASE_URL` in this repository's encrypted Actions secrets because it expands credential access to workflows and collaborators. Enabling it requires the owner's explicit approval of that destination and scope. No production database credential was saved to GitHub.
+| Surface | Observation |
+| --- | --- |
+| Public domain | `https://scenthaus-intelligence.vercel.app/` responds. Its API returned older generated catalogue entries such as “Citrus Theory” from “Atelier 08”, not the current 150-product reference catalogue. |
+| Latest ready Production deployment | Vercel lists `dpl_6oaHexM8rZ4V1mRdbc3QBewgrkLR`, source commit `22c3c35` on `main`; that source belongs to the older release. |
+| Latest project deployment state | The Vercel project API reports the latest deployment as `ERROR` and `live: false`; the domain still has the earlier production response. |
+| Preview environment variables | The configured database integration and app secrets inspected for this project are scoped to `Production`; no Preview-scoped `DATABASE_URL` is configured. A branch Preview cannot initialize against a missing database URL. |
+| New source release | Local commit `f3ec1dc` contains the real-catalogue Vercel build and storefront changes. It has not been pushed, so no CI run or Vercel deployment exists for this commit. The new release requires a separate clean database. Its release guard fails before writing catalogue rows when the database contains a different catalogue. |
+
+The request to `/api/products?in_stock=false` was read-only and showed the legacy catalogue. Environment variable names and target scopes were inspected without decrypting values. No secret was read or changed, and no database rows were modified.
+
+## Repository publish access
+
+The local `git push` could not prompt for GitHub credentials. The connected GitHub integration returned `403 Resource not accessible by integration` when asked to create a tree; the workspace has no GitHub CLI session. No remote ref was changed. The phase 7-9 work remains committed locally and needs a write-enabled GitHub connection or a normal authenticated push before CI or Vercel can run it.
+
+## Required owner setup
+
+Create one empty managed PostgreSQL database for Preview and another for Production. Add the required `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `ENVIRONMENT`, `SECRET_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `CRON_SECRET` and `ALLOWED_ORIGINS` values to the corresponding Vercel environments. Do not reuse the old catalogue database. After the source branch is pushed, deploy Preview first and complete the smoke checks in [`docs/deployment.md`](../docs/deployment.md); only then promote the verified release.
+
+The GitHub retraining workflow is an artifact-producing simulated-data job. It does not connect to Production or push a serving release. No production database credential was added to GitHub Actions.

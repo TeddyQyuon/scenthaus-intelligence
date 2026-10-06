@@ -1,28 +1,34 @@
 # Architecture
 
-React + Vite serves a JavaScript storefront. The `/api` reverse proxy forwards requests to FastAPI, preserving a same-origin browser session. Python owns catalogue access, authentication, cart/wishlist/quiz state, transactional demo orders, consented events and administration. PostgreSQL stores all durable commerce and tracking records. Browser localStorage is not used for these features.
+SCENTHAUS is a React/Vite storefront, a FastAPI service and a separate offline model-build path. Vercel Services routes the storefront and `/api` on one origin. PostgreSQL stores accounts, consent, saved items, simulated commerce and tracking data.
 
 ```mermaid
 flowchart TD
-  UI["React storefront + admin"] --> API["FastAPI"]
-  API --> DB["PostgreSQL"]
-  DB --> Train["Validation + training worker"]
-  Train --> Models["Versioned artifacts + MLflow"]
-  Models --> API
+  Browser["React storefront and admin"] --> API["FastAPI on Vercel"]
+  API --> DB["Managed PostgreSQL"]
+  Build["Isolated CPU model build"] --> Bundle["Versioned serving bundle"]
+  Bundle --> API
 ```
 
-Products hold note pyramids, accords and contextual labels. Variants hold size, price, stock and lead time. Users have optional credentials and default-off consent. Session tokens are stored as SHA-256 hashes, while cookies hold high-entropy opaque raw tokens. No email or password is included in model features.
+## Request path
 
-The generator has 2,000 latent Dirichlet tastes, budget variation and loyalty noise. A weekly trend, sinusoidal product drift, calendar/promo multipliers and companion purchases yield 104 weeks of repeatable but artificial orders. Hidden vectors are not persisted as training features. Historical purchases do not decrement the present-day illustrative inventory snapshot.
+- React calls the same-origin `/api` routes. The API service mounts FastAPI under `/api` and enforces session, role, CSRF/Origin, ownership and consent checks server-side.
+- PostgreSQL holds the 150-product fragrance reference catalogue, 297 size variants, accounts, wishlists, carts, demo orders and consented events. Product references and images are real; prices, stock and behaviour are simulated.
+- Recommendations serve cached NumPy arrays. Search uses BM25 plus precomputed dense product vectors and a quantized ONNX MiniLM query encoder. The Vercel request path does not train models.
+- Serving artifacts are built from a trusted, versioned bundle and checksum-verified before loading. The function bundles only the small inference modules, YAML configs, encoder assets and serving artifacts it needs.
 
-Training excludes nonconsenting users, checks nulls/duplicates/foreign keys/price and quantity validity/launch timing, and records an order-line fingerprint. Temporal cutoffs bound purchases, wishlist and event signals. Product vocabulary/SVD fitting uses items launched before each cutoff. Hybrid weights are chosen on validation. Forecast features are constructed from preceding lags and recursive predictions, never future actuals.
+## Training and evaluation
 
-A complete trusted pickle bundle and metrics JSON are written into a new version folder. MLflow records metrics, parameters and metrics artifacts. Database model/snapshot records commit before a temporary manifest atomically replaces `current.json`. Serving checks path syntax and SHA-256 before loading locally trained pickle; user-uploaded models are never accepted. A failed training run leaves the active manifest unchanged.
+The seed command creates a fixed, synthetic activity and order history. The training pipeline filters user-derived records to consented users, validates catalogue/order integrity, and uses time-based splits. Recommender, search and forecasting results are reported with baselines in [`ml/reports/`](../ml/reports/). The full forecasting and recommendation artifacts are assembled at build time for a new Vercel release; training weights are not committed to Git.
 
-Static item similarities use a bounded LRU. Personal state and product eligibility are read live and are not shared in a personalized cache. Recommendation IDs tie impressions/clicks to the same user, allowed items and model within seven days. Last valid recommendation click gets one revenue credit per purchased line. Historical simulated browsing intentionally has no attribution IDs; placement performance starts from actual demo interactions.
+Model changes are versioned, and a failed build does not replace a previously active artifact pointer. Product, stock and account state remain live in PostgreSQL; personal state is not stored in a shared recommendation cache.
 
-The worker reconciles completed weekly ForecastSnapshots with actual sales and expires events/recommendation references after 180 days. RFM clusters are aggregated in the admin and are not consequential classifications of customers. Monitoring is process-local latency/error sampling plus a PSI heuristic; this is not distributed observability.
+## Privacy and operations
 
-Vercel Services hosts React and FastAPI on one origin; backend/main.py mounts /api because Services preserves the original path. A build-time advisory lock protects migration and idempotent initialization of the dedicated managed PostgreSQL database. Requests read the committed checksum-verified model and never train or write artifacts. Daily bearer-authenticated Vercel Cron reconciles outcomes and applies retention. Separate opt-in GitHub Actions training commits new model versions, which trigger deployment through the Git integration.
+Personalization is off by default. Without consent, a quiz is used for that response only; browsing events are not accepted for tracking. Withdrawal removes the user's events, quiz profile and recommendation references, and future training excludes their orders and other activity. Wishlist, cart and demo orders remain available as functional account features. See [`governance.md`](governance.md).
 
-Compose remains an optional local development topology with shared model/MLflow volumes. It is not used for the requested Vercel hosting.
+Vercel Cron calls the authenticated maintenance route for retention and completed-week reconciliation. No automatic model retraining is enabled. A future build can regenerate a model bundle after an owner-reviewed deployment; it must point at a dedicated clean database for the 150-product release.
+
+## Development
+
+Local development uses native PostgreSQL, the same React/API services and optional local MLflow. Docker is not part of the requested run path. Setup commands are in the [README](../README.md).

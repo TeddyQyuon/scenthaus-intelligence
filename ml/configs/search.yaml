@@ -1,4 +1,8 @@
 k: 10
+vercel_encoder_repo: sentence-transformers/all-MiniLM-L6-v2
+vercel_encoder_revision: 5641a7880f40ebf4035d05e60c5f9b7a9c272c84
+vercel_encoder_file: onnx/model_quint8_avx2.onnx
+vercel_encoder_sha256: b941bf19f1f1283680f449fa6a7336bb5600bdcd5f84d10ddc5cd72218a0fd21
 rrf_constant: 60
 query_cache_size: 128
 bm25_k1: 1.5

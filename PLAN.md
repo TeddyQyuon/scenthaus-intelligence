@@ -2,17 +2,14 @@
 Tick [x] when a phase's Done-when checks pass.
 
 ## Assumptions
-- Latest user instructions override Docker and phase pauses: use Vercel and finish all phases in order.
-- Workspace maintenance removed unpushed phase work on 2026-10-05. Recovered published GitHub main 22c3c35; all phase checks below are rerun on the recovered app.
-- Reuse the existing React/Vite JavaScript storefront and Python service. No Next.js or legacy directory is present.
-- The catalog contains real products across the user's 35 brands. Source links identify manufacturer versus retailer images. Prices, stock, orders, users, events, catalog availability dates and wear annotations are simulated; supplier authenticity and real checkout are not verified.
-- Native PostgreSQL/Docker are unavailable here. Local SQL checks use PGlite's PostgreSQL wire protocol; CI also runs native Postgres. PGlite cannot prove production TLS or concurrent row-lock behavior.
-- All hyperparameters are YAML, seed 42 unless a phase requires three seeds. Only time-based splits; no simulated data or trained weights committed.
-- Preserved original phase requirements below; all Docker checks mean equivalent native/Vercel process checks under the user's explicit override.
-
-- Phase 3 warm latency is measured with TestClient + PGlite; it is not a network or Vercel guarantee. Collaborative filtering remains stronger than the trained two-tower model on the shared simulated test split.
-
-- Phase 5: after interrupted fixture recovery, local order lines were restored from the fixed-seed generator; 17,508 lines persist across restarts and all 16 phase checks pass. The original disappearance was not reproduced. Native PostgreSQL CI remains required for full-stack verification. DL intervals are quantiles; 95% bands are approximate residual extensions. Four-week backtests do not validate every 12-week horizon.
+- The user explicitly requested all phases without pauses and Vercel as the deployment target. Do not add Docker or pause between completed phases.
+- The working source is the real-catalogue branch based on phase 6 commit `215eb33`; the phase 7-9 implementation is committed locally as `f3ec1dc`. It has not reached GitHub: shell Git has no CLI credential and the connected GitHub integration rejected repository writes. The remote feature branch remains at phase 5 (`bdc7653`), so its CI and Vercel preview have not run for this source.
+- The current reference catalogue has 150 real fragrances across 35 brands and 297 size variants. Prices, stock, users, quizzes, browsing activity, orders and all model-training behaviour are simulated. Product-source links do not verify authenticity or current availability.
+- The checked-in evaluation reports use a 52/13/13-week recommender split, 60 auto-drafted search queries with zero human reviews, and three expanding forecast origins. They are pipeline measurements, not customer or commercial performance.
+- The current public Vercel alias still returns the older invented catalogue. The Vercel project has database integration variables scoped to Production; the latest feature-branch Preview could not initialize without `DATABASE_URL`. The release guard refuses to change a database whose catalogue is not the exact 150-product release.
+- Phase 9 uses Vercel Services and managed PostgreSQL only. A separate empty Preview database and a separate empty Production database are required before first deployment; account configuration remains the owner's step. Never reset or overwrite the existing production database as part of this work.
+- CI is configured for native PostgreSQL and Playwright. Local tests that need PostgreSQL/browser binaries may be unavailable in this workspace; record which checks actually ran in `reports/verification.md`.
+- Hyperparameters are YAML. Data/time splits are chronological. Generated training data and trained weights are not committed.
 
 ## Phases
 
@@ -21,18 +18,18 @@ Goal: a monorepo that runs end to end with empty features.
 - frontend/: React + Vite + React Router
 - backend/: FastAPI, SQLAlchemy, Alembic, GET /health
 - ml/ (package, configs/, reports/) and data/
-- docker-compose.yml: frontend, api, postgres
+- Native local processes plus Vercel service configuration; no Docker requirement
 - ruff config, pytest in backend and ml, .gitignore, git init
 - Fill in the Commands section of AGENTS.md
-Done when: docker compose up serves the frontend and /health,
-and tests + lint pass.
+Done when: the frontend and /health run through the documented
+local process setup, and tests + lint pass.
 
 [x] PHASE 1: DATA
 Goal: realistic simulated data in Postgres + event logging.
 - Tables: products, users (with quiz_profile), events, orders,
   order_items, stock
-- Seed ~150 fragrances (reuse /legacy products if present,
-  else invented brands): concentration, top/heart/base notes,
+- Seed 150 real fragrance references across 35 brands:
+  concentration, top/heart/base notes,
   accords, season, occasion, longevity, sillage, price per
   size, stock
 - ml/data/generate_orders.py: ~2,000 users with hidden taste
@@ -110,7 +107,7 @@ Done when: ml/reports/forecast.md compares seasonal naive,
 LightGBM, LSTM and N-BEATS (even if LightGBM wins), and
 tests pass.
 
-[ ] PHASE 6: TRACKING + SERVING
+[x] PHASE 6: TRACKING + SERVING
 Goal: reproducible runs and a one-command stack.
 - MLflow tracking in every training script: params, metrics,
   artifacts, dataset version hash
@@ -118,9 +115,9 @@ Goal: reproducible runs and a one-command stack.
   rollback script
 - API loads the current models at startup and returns the
   model version in responses
-- Add mlflow to docker-compose; a Dockerfile for ml jobs
-Done when: docker compose up runs the whole stack and a
-training run appears in MLflow.
+- Local optional MLflow tracking; Vercel build-time artifact generation
+Done when: the native local process setup serves a verified
+versioned model and a training run appears in MLflow.
 
 [ ] PHASE 7: REACT UI
 Goal: storefront and admin pages that use the ML endpoints.
@@ -151,15 +148,21 @@ Goal: a portfolio-ready repo.
   demo and repo links
 Done when: a fresh clone runs using only the README commands.
 
-[ ] PHASE 9: DEPLOY PREP
-Goal: ready to deploy. I will do the account steps myself.
-- Frontend: Vercel config with SPA rewrite, VITE_API_URL env
-- API: production Dockerfile, CORS origins from env, health
-  check; inference via ONNX Runtime or CPU-only torch to
-  keep the image small
-- DB: DATABASE_URL env (Neon-compatible), migrate + seed
-  command for production
-- .env.example for every service; no secrets committed
-- docs/DEPLOY.md: step-by-step for Vercel + Render + Neon
-Done when: the production API image runs locally against the
-compose Postgres, and DEPLOY.md is complete.
+[ ] PHASE 9: VERCEL DEPLOY PREP
+Goal: prepare a Vercel-only release; the owner handles database and account setup.
+- Frontend: Vercel SPA service with same-origin `/api` calls
+- API: FastAPI service, safe build-time setup, CPU ONNX inference,
+  CORS origins from env and health check
+- DB: managed PostgreSQL URLs, migration and clean-catalogue seed
+- `.env.example` files, no secrets committed
+- Vercel deployment and verification steps documented
+Done when: an isolated Vercel Preview and Production deployment
+run against their dedicated clean databases and pass the release
+smoke checks in `docs/deployment.md`.
+
+Current blocker: the public alias still serves the prior invented
+catalogue and database variables are Production-only. The owner
+must configure new empty Preview and Production databases before
+this phase can be checked complete. The locally committed source
+must also be pushed to the feature branch before CI or Vercel can
+verify it.

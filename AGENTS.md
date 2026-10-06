@@ -1,55 +1,50 @@
-# AGENTS.md
-SCENTHAUS: fragrance shop with an ML layer (portfolio project).
-Stack: React + Vite (frontend/), FastAPI + SQLAlchemy +
-Postgres (backend/), PyTorch (ml/), Docker Compose.
-Plan: PLAN.md. An old Next.js app, if present, is in /legacy
-and is read-only.
+# SCENTHAUS project guidance
+
+SCENTHAUS is a fragrance discovery portfolio project. Stack: React + Vite (`frontend/`), FastAPI + SQLAlchemy + PostgreSQL (`backend/`), PyTorch for offline training and NumPy/ONNX Runtime for serving (`ml/`). Production target: Vercel Services. Docker is not part of the requested workflow. The older Next.js application and legacy catalogue are not the source of truth.
 
 ## Workflow
-- Work on one phase at a time, in order.
-- Inspect before editing. Keep the diff inside the phase scope.
-- At the end of a phase: run its Done-when checks, tick it in
-  PLAN.md, commit ("phase N: <name>"), then reply with changed
-  files, commands + results, assumptions and remaining risks.
-- Then STOP and wait for me to say "continue".
-- If something is ambiguous, pick the simplest option, log it
-  under Assumptions in PLAN.md, and keep going.
+
+- Work through phases in order. By default, finish one phase, run its Done-when checks, update `PLAN.md`, commit as `phase N: <name>`, and wait for the user. An explicit user instruction to continue across phases overrides the pause.
+- Inspect before editing. Keep the diff scoped to the active phase or user request.
+- If something is ambiguous, choose the simplest safe option and record it under Assumptions in `PLAN.md`.
 
 ## Rules
-- Users, orders and events are SIMULATED. Say so in the
-  README, the UI and every model card.
-- Every DL model is compared to a baseline on the same split.
-  Report results honestly, even when the baseline wins.
-- Time-based splits only. No random splits on events/orders.
-- Fixed seeds. Hyperparameters live in ml/configs/*.yaml.
-- Python 3.11+, type hints, ruff, pytest. Add tests with code.
+
+- Users, orders, prices, stock and events are **SIMULATED**. Say so in the README, UI and every model card. Product references may be real; do not imply their authenticity or current availability has been verified.
+- Compare every deep-learning model to a baseline on the same time split. Report results honestly, including when a baseline wins.
+- Use time-based splits for events/orders. Fix random seeds and keep hyperparameters in `ml/configs/*.yaml`.
+- Python 3.12, type hints, Ruff and pytest. Add meaningful tests with code changes.
 - Schema changes only through Alembic migrations.
-- Prefer the libraries a phase names. List any other new
-  dependency in the phase summary.
-- Never commit secrets, data dumps or model weights.
+- Never commit secrets, generated datasets or model weights.
+- Do not point a new catalogue release at an existing database unless its release guard accepts the exact catalogue.
 
 ## Done means
-Tests pass, ruff is clean, README is updated, and results are
-written to ml/reports/*.md as tables.
 
-## Commands
-Run from the repository root. User overrides: no Docker; complete all phases without pausing.
+Tests and lint pass, the README is current, and model results are written to `ml/reports/*.md` as tables. A deployment phase also requires a verified deployment; code/configuration readiness alone is not a live-release claim.
+
+## Local commands
+
+Run from the repository root. Use a native PostgreSQL database and set a unique admin password before seeding. These commands install training dependencies only in the local environment; Vercel creates its own temporary build environment.
 
 ```bash
-python3 -m venv .venv
-uv pip install --python .venv/bin/python -r backend/requirements-training.txt
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install torch==2.9.0 --index-url https://download.pytorch.org/whl/cpu
+python -m pip install -r backend/requirements-training.txt
 npm --prefix frontend ci
-# Export DATABASE_URL for PostgreSQL/Neon and ADMIN_PASSWORD (12+ characters).
-(cd backend && ../.venv/bin/alembic upgrade head)
-PYTHONPATH=backend .venv/bin/python -m app.seed
-PYTHONPATH=backend .venv/bin/python -m ml.train_all
-PYTHONPATH=backend .venv/bin/uvicorn app.main:app --port 8000
+
+export DATABASE_URL='postgresql+psycopg://postgres:postgres@localhost:5432/scenthaus'
+export ADMIN_PASSWORD='choose-a-unique-password-at-least-12-chars'
+(cd backend && PYTHONPATH=..:. ../.venv/bin/alembic upgrade head)
+PYTHONPATH=backend:. .venv/bin/python -m app.seed
+PYTHONPATH=backend:. .venv/bin/python -m ml.train_all
+PYTHONPATH=backend:. .venv/bin/uvicorn app.main:app --port 8000
 npm --prefix frontend run dev
-.venv/bin/pytest
+
+PYTHONPATH=backend:. .venv/bin/pytest
 .venv/bin/ruff check .
 npm --prefix frontend test
 npm --prefix frontend run build
-# Restricted runtime fallback for local tests (PGlite, not native Postgres):
-npm --prefix tools ci
-node tools/pg-run.mjs .venv/bin/python scripts/verify.py --phase 0
 ```
+
+For Vercel variables and first-release requirements, see [`docs/deployment.md`](docs/deployment.md). GitHub Actions uses native PostgreSQL and exercises the API/browser flows.

@@ -1,4 +1,5 @@
-import hashlib, json, pickle, re, threading
+import json, pickle, threading
+from .versions import resolve_current
 from functools import lru_cache
 from app.config import settings
 
@@ -16,13 +17,16 @@ class ModelStore:
         version = manifest["version"]
         with self.lock:
             if self.bundle is None or self.bundle["version"] != version:
-                if not re.fullmatch(r"[0-9]{8}T[0-9]{6}-[a-f0-9]{8}", version):
-                    raise ValueError("Invalid model path")
-                payload = (settings.artifact_dir / version / "bundle.pkl").read_bytes()
-                if hashlib.sha256(payload).hexdigest() != manifest["sha256"]:
-                    raise ValueError("Model checksum mismatch")
+                folder, _ = resolve_current(settings.artifact_dir)
+                payload = (folder / "bundle.pkl").read_bytes()
                 # Only trusted, locally trained artifacts. Never accept uploaded pickle files.
                 self.bundle = pickle.loads(payload)
+                for key in ["torch_recommender", "search_path"]:
+                    relative = self.bundle[key]
+                    target = folder / relative
+                    if not target.resolve().is_relative_to(folder.resolve()):
+                        raise ValueError("Invalid model asset path")
+                    self.bundle[key] = str(target)
                 self.static.cache_clear()
             return self.bundle
 

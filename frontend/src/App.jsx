@@ -116,6 +116,13 @@ export function ProductCard({ product: p, rec }) {
         {p.category} · {p.concentration} · {Object.values(p.notes).flat().slice(0, 3).join(", ")}
       </p>
       <p className="price">From {money(p.price_from)}</p>
+      {!!p.reason_tags?.length && (
+        <div className="reason-chips" aria-label="Why this scent was suggested">
+          {p.reason_tags.map((tag) => (
+            <span key={tag}>{tag}</span>
+          ))}
+        </div>
+      )}
       {p.why && (
         <>
           <button className="why" onClick={() => setWhy(!why)}>
@@ -152,9 +159,9 @@ function Layout() {
   return (
     <>
       <div className="announcement">
-        A scent for every version of you.{" "}
+        Real fragrance references · simulated prices and stock · demo only.{" "}
         <Link to="/quiz">
-          Find yours <ArrowRight size={12} />
+          Find your scent <ArrowRight size={12} />
         </Link>
       </div>
       <header className="site-header">
@@ -207,9 +214,9 @@ function Layout() {
           </Link>
           <p>Fragrance, with a little more feeling.</p>
           <p className="metadata">
-            A portfolio demonstration. Fictional scents,
-            <br />
-            real fragrance brands and sourced photographs. Prices, stock, customers and orders are simulated.
+            A portfolio demonstration. Real fragrance references and sourced
+            photographs. Prices, stock, customers and orders are simulated;
+            there are no real sales or fulfilment.
           </p>
         </div>
         <div>
@@ -434,6 +441,10 @@ function Shop() {
       <p className="eyebrow">150 SCENTS. 35 ICONIC BRANDS.</p>
       <h1>The collection.</h1>
       <p className="intro">Follow a note. Find a feeling. Make it yours.</p>
+      <p className="notice">
+        Reference catalogue only. Prices and stock are simulated, and demo
+        checkout does not take payment or fulfil orders.
+      </p>
       <div className="search-field">
         <Search size={19} />
         <input
@@ -455,6 +466,39 @@ function Shop() {
         />{" "}
         Describe your scent in natural language
       </label>
+      {natural && (
+        <div className="search-chips" aria-label="Example searches">
+          {[
+            "Fresh office scent under $150",
+            "Warm evening scent under $200",
+            "Woody 100ml fragrance",
+            "Clean citrus for summer",
+          ].map((query) => (
+            <button
+              className="outline"
+              key={query}
+              type="button"
+              onClick={() => {
+                setFilters((current) => ({
+                  ...current,
+                  q: query,
+                  category: "",
+                  brand: "",
+                  budget: "",
+                  size: "",
+                  gender: "",
+                  season: "",
+                  in_stock: false,
+                  sort: "featured",
+                }));
+                setError("");
+              }}
+            >
+              {query}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="filter-bar">
         <SlidersHorizontal size={18} />
         {[
@@ -768,7 +812,9 @@ function Quiz() {
         <h1>These feel like you.</h1>
         <p className="intro">A starting point for your next signature.</p>
         <p className="metadata">
-          {result.match_note} Your quiz is saved to your account.
+          {result.match_note} {user.consent
+            ? "Your quiz is saved to your account."
+            : "Your answers are used for these suggestions only and are not saved."}
         </p>
         <Grid products={result.products} rec={result} />
         <button
@@ -1254,12 +1300,13 @@ function Privacy() {
           the quiz and explore community favourites.
         </p>
       </div>
-      <h2>What we keep</h2>
-      <p>
-        Your bag, wishlist, quiz and orders are stored in the database to
-        provide these features. Account email and password hashes stay separate
-        from model features. We never ask for card details in this
-        demonstration.
+        <h2>What we keep</h2>
+        <p>
+          Your bag, wishlist and demo orders are stored to provide these
+          account features. Quiz answers are saved to your scent profile only
+          while personalization is on; otherwise they are used for that quiz
+          response only. Account email and password hashes stay separate from
+          model features. We never ask for card details in this demonstration.
       </p>
       <h2>When you opt out</h2>
       <p>
@@ -1336,7 +1383,7 @@ function Intelligence() {
         {[
           [
             "A familiar feeling",
-            "Notes and accords become TF-IDF vectors. Cosine similarity finds scents with a shared character.",
+            "Product notes, accords and text support content similarity and shared-note explanations.",
           ],
           [
             "A personal connection",
@@ -1344,7 +1391,7 @@ function Intelligence() {
           ],
           [
             "A view of what’s next",
-            "Weekly demand models compare seasonal naive, ETS, SARIMA, LightGBM and Croston through expanding time windows.",
+            "Weekly SKU and category forecasts compare seasonal naive and LightGBM baselines with LSTM and N-BEATS on expanding time windows.",
           ],
         ].map(([title, copy]) => (
           <article key={title}>
@@ -1358,17 +1405,19 @@ function Intelligence() {
         <>
           <h2>Measured, openly.</h2>
           <p>
-            Eight weeks held out by time. Hyperparameters use the preceding
-            validation window.
+            Recommendation and search metrics use chronological cutoffs. Forecast
+            metrics average three expanding test origins and score the first four
+            steps at each origin. Full comparisons and protocols are in the model
+            cards below.
           </p>
           <MetricsTable metrics={data.recommender.metrics} />
           <div className="notice">
             <strong>Simulated orders, not real commercial evidence.</strong>
             <p>
-              We generated 2,000 hidden customer profiles and 78 weeks of
-              orders. These results validate pipeline mechanics and methods.
-              They do not prove effectiveness on real customers. Content may
-              outperform the hybrid in this particular simulation.
+              We generated 2,000 pseudonymous user profiles and 78 weeks of
+              orders. These results show behaviour on generated data; they do
+              not establish effectiveness on real customers or commercial
+              uplift.
             </p>
           </div>
           <div className="kpi-grid">
@@ -1395,15 +1444,15 @@ function Intelligence() {
             {[
               [
                 "Discovery",
-                "Purpose: help shoppers explore. Data: product metadata and consented pseudonymous activity. Limits: simulated behaviour, popularity bias, no certainty of preference.",
+                "Purpose: help shoppers explore. Data: product metadata and consented pseudonymous activity. Limits: simulated behaviour, a small catalogue and no certainty of preference.",
               ],
               [
                 "Forecasting",
-                "Purpose: support replenishment planning. Data: weekly SKU sales and Singapore calendar features. Limits: 24 months, synthetic shocks, uncertain low-volume demand. Humans review every reorder.",
+                "Purpose: support inventory review. Data: 78 simulated weeks of SKU sales and calendar features. Limits: short history, observed sales can be stockout-censored, and interval coverage varies by model. Humans review every action.",
               ],
               [
                 "Experiments",
-                "Two-tower and skip-gram session models are implemented as optional experiments. Learning curves are training diagnostics. Elasticity is observational and promotion-confounded; A/B outcomes are simulated.",
+                "Two-tower and item2vec models are optional experiments. Learning curves are training diagnostics. Price-response coefficients are observational and promotion-confounded; experiment outcomes are simulated.",
               ],
             ].map(([title, copy]) => (
               <article key={title}>
@@ -1447,7 +1496,7 @@ export default function App() {
             />
           </Route>
           <Route
-            path="admin"
+            path="admin/*"
             element={
               <Suspense
                 fallback={

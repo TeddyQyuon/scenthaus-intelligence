@@ -31,7 +31,23 @@ from .ml.experiments import ab_simulate
 from .ml.metrics import metrics as forecast_metrics
 from .analytics import overview, segments, date_range
 
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def lifespan(app):
+    b = store.get()
+    if b:
+        from ml.rec_serving import load_cache as load_tower
+        from ml.search import load_index
+
+        load_tower(b["torch_recommender"])
+        load_index(b["search_path"])
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="SCENTHAUS Intelligence",
     version="1.0.0",
     docs_url="/docs" if settings.environment != "production" else None,
@@ -343,6 +359,7 @@ def results(
     for i in rank:
         pid = model["ids"][i]
         p = rows[pid]
+        reason_tags = []
         reason = (
             "Popular with the community"
             if not signal and not quiz and not profile
@@ -362,10 +379,34 @@ def results(
                     f"Because you {'wishlisted' if best in wishes else 'explored'} {source.name}"
                     + (": shared " + ", ".join(sorted(shared)[:3]) if shared else "")
                 )
+                reason_tags = [f"Shared note: {note}" for note in sorted(shared)[:3]]
+                shared_accords = set(source.accords or []) & set(p.get("accords", []))
+                reason_tags.extend(
+                    f"Shared accord: {accord}" for accord in sorted(shared_accords)[:2]
+                )
         if pid in rule_details:
             reason = "Often in the same basket: " + ", ".join(
                 db.get(Product, int(a)).name for a in rule_details[pid]["antecedents"]
             )
+            reason_tags = ["Often bought together"]
+        elif quiz or profile:
+            preferences = quiz or profile or {}
+            ranked_accords = sorted(
+                p.get("accords", []),
+                key=lambda accord: preferences.get(accord, 0),
+                reverse=True,
+            )
+            reason_tags = [
+                f"{accord.title()} accord"
+                for accord in ranked_accords
+                if preferences.get(accord, 0) > 0
+            ][:3]
+            if not reason_tags:
+                reason_tags = ["Profile match"]
+        elif not signal:
+            reason_tags = ["Community pick"]
+        elif not reason_tags:
+            reason_tags = ["Similar scent profile"]
         match = None
         if quiz or profile:
             q = np.array([(quiz or profile).get(a, 0) for a in ACCORDS])
@@ -373,7 +414,13 @@ def results(
                 float(cosine_similarity([q], [model["accords"][i]])[0, 0]) * 100
             )
         output.append(
-            p | {"why": reason, "match": match, "rule": rule_details.get(pid)}
+            p
+            | {
+                "why": reason,
+                "reason_tags": reason_tags,
+                "match": match,
+                "rule": rule_details.get(pid),
+            }
         )
     recid = None
     if user.consent and output:
@@ -390,7 +437,9 @@ def results(
         "products": output,
         "recommendation_id": recid,
         "model_version": b["version"],
-        "ranking_model": "two_tower" if experiment == "two_tower" or quiz else "hybrid",
+        "ranking_model": "two_tower"
+        if (experiment == "two_tower" and user.consent) or quiz
+        else "hybrid",
         "slot": kind,
         "match_note": "Cosine alignment with stated accords, not a probability of liking a scent.",
     }
@@ -866,14 +915,15 @@ def cart_recs(user=Depends(user_required), db=Depends(get_db)):
 def quiz(body: Quiz, user=Depends(user_required), db=Depends(get_db)):
     answers = body.model_dump()
     weights = quiz_weights(answers)
-    profile = db.get(QuizProfile, user.id)
-    if profile:
-        profile.answers = answers
-        profile.weights = weights
-        profile.created_at = now()
-    else:
-        db.add(QuizProfile(user_id=user.id, answers=answers, weights=weights))
-    functional_event(db, user, None, "quiz_submit")
+    if user.consent:
+        profile = db.get(QuizProfile, user.id)
+        if profile:
+            profile.answers = answers
+            profile.weights = weights
+            profile.created_at = now()
+        else:
+            db.add(QuizProfile(user_id=user.id, answers=answers, weights=weights))
+        functional_event(db, user, None, "quiz_submit")
     db.commit()
     return results(
         db, user, "quiz", quiz=weights, budget=body.budget, size=body.size, k=12
@@ -1243,7 +1293,12 @@ def export(
     else:
         raise HTTPException(422, "Choose sales, inventory, products or tracking")
     stream = io.StringIO()
-    writer = csv.DictWriter(stream, fieldnames=list(rows[0]) if rows else ["no_data"])
+    writer = csv.DictWriter(
+        stream,
+        fieldnames=list(dict.fromkeys(key for row in rows for key in row))
+        if rows
+        else ["no_data"],
+    )
     writer.writeheader()
     for row in rows:
         writer.writerow(

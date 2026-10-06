@@ -15,7 +15,9 @@ class Settings(BaseSettings):
     admin_email: str = "admin@scenthaus.demo"
     admin_password: str = ""
     demo_mode: bool = True
-    mlflow_tracking_uri: str = "sqlite:///mlflow.db"
+    mlflow_tracking_uri: str = "sqlite:///" + str(
+        Path(__file__).resolve().parents[1] / "mlflow.db"
+    )
     retention_days: int = 180
     cron_secret: str = ""
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

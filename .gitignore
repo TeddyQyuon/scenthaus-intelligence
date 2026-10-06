@@ -16,6 +16,7 @@ reports/browser-tests.json
 data/*
 !data/README.md
 backend/artifacts/
+backend/ml/
 ml/models/
 *.onnx
 *.pt

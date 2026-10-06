@@ -10,16 +10,8 @@ Same exclusive 52/13/13-week split, K=10, novel purchase targets and eligible ca
 | cf | 0.03781 | 0.21331 | 0.13731 | 0.13695 | 0.97260 | 0.79026 | 1058 |
 | content | 0.02420 | 0.13533 | 0.08460 | 0.08660 | 0.28082 | 0.23913 | 1058 |
 | hybrid | 0.03696 | 0.20821 | 0.13679 | 0.13715 | 0.94521 | 0.81786 | 1058 |
-| two_tower:full | 0.03743 | 0.21113 | 0.13406 | 0.13352 | 0.60959 | 0.75208 | 1058 |
+| two_tower:full | 0.03743 | 0.21113 | 0.13407 | 0.13354 | 0.60959 | 0.75198 | 1058 |
 | two_tower:no_content | 0.03488 | 0.19291 | 0.13313 | 0.14305 | 1.00000 | 0.84622 | 1058 |
-| two_tower:no_history | 0.03270 | 0.19382 | 0.13408 | 0.14232 | 1.00000 | 0.81068 | 1058 |
-| two_tower:no_quiz | 0.03592 | 0.20048 | 0.12998 | 0.13171 | 0.61644 | 0.72675 | 1058 |
-| two_tower:bpr | 0.03762 | 0.21385 | 0.13523 | 0.13450 | 0.78767 | 0.68639 | 1058 |
-
-| Warm local check | p95 ms |
-|---|---:|
-| user | 31.34 |
-| similar | 22.73 |
-| cached_numpy | 0.04 |
-
-PostgreSQL-protocol PGlite fixture + FastAPI TestClient, 30 warm API requests; not a production/network latency guarantee. Tests cover causal training history, cold start, NumPy/PyTorch parity, recommendation filters, explanations, quiz and consent.
+| two_tower:no_history | 0.03563 | 0.20386 | 0.13646 | 0.14213 | 0.91096 | 0.76304 | 1058 |
+| two_tower:no_quiz | 0.03516 | 0.19773 | 0.12979 | 0.13070 | 0.60274 | 0.71720 | 1058 |
+| two_tower:bpr | 0.03894 | 0.22532 | 0.14087 | 0.13754 | 0.71233 | 0.64216 | 1058 |

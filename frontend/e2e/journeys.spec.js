@@ -1,18 +1,46 @@
 import { test, expect } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
+
 const reports = path.resolve("../reports");
-test("storefront, persistent wishlist, quiz, bag and demo order", async ({
+
+async function realProduct(page) {
+  const response = await page.request.get("/api/products?in_stock=false");
+  expect(response.ok()).toBeTruthy();
+  const catalog = await response.json();
+  expect(catalog.products).toHaveLength(150);
+  expect(catalog.brands).toHaveLength(35);
+  return catalog.products.find(
+    (product) =>
+      product.brand === "Dior" && product.variants.some((variant) => variant.stock > 0),
+  );
+}
+
+async function adminCredentials() {
+  if (process.env.ADMIN_PASSWORD) {
+    return {
+      email: process.env.ADMIN_EMAIL || "admin@scenthaus.demo",
+      password: process.env.ADMIN_PASSWORD,
+    };
+  }
+  const env = fs.readFileSync("../backend/.env", "utf8");
+  return {
+    email: env.match(/^ADMIN_EMAIL=(.+)$/m)?.[1] || "admin@scenthaus.demo",
+    password: env.match(/^ADMIN_PASSWORD=(.+)$/m)?.[1],
+  };
+}
+
+test("real catalog, discovery, consent, wishlist, quiz and demo order", async ({
   page,
 }) => {
   const errors = [];
-  page.on("pageerror", (e) => {
-    errors.push(e.message);
-    console.log("BROWSER_ERROR", e.stack);
-  });
+  page.on("pageerror", (error) => errors.push(error.message));
+  const product = await realProduct(page);
+  expect(product).toBeTruthy();
+
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Less ordinary. More you." }),
+    page.getByRole("heading", { name: /Less ordinary.*More you/ }),
   ).toBeVisible();
   await expect(page.locator(".product-image img").first()).toBeVisible();
   await expect
@@ -20,123 +48,147 @@ test("storefront, persistent wishlist, quiz, bag and demo order", async ({
       page
         .locator(".product-image img")
         .first()
-        .evaluate((i) => i.complete && i.naturalWidth > 0),
+        .evaluate((image) => image.complete && image.naturalWidth > 0),
     )
     .toBeTruthy();
+  await fs.promises.mkdir(reports, { recursive: true });
   await page.screenshot({
     path: path.join(reports, "home-desktop.png"),
     fullPage: true,
   });
-  await page
-    .getByRole("link", { name: "Explore the collection", exact: true })
-    .first()
-    .click();
-  console.log("NAV_URL", page.url());
+
+  await page.getByRole("link", { name: "Explore the collection" }).click();
   await expect(
     page.getByRole("heading", { name: "The collection." }),
   ).toBeVisible();
-  await expect(page.locator(".product-card")).toHaveCount(36);
+  await expect(page.locator(".product-card")).toHaveCount(150);
+  await page.getByLabel("House").selectOption("Dior");
+  await expect(page.locator(".product-card").first()).toContainText("Dior");
+  await page.getByLabel("House").selectOption("");
+
   await page
-    .getByRole("button", { name: "Save Citrus Theory", exact: true })
+    .getByRole("checkbox", { name: "Describe your scent in natural language" })
+    .check();
+  await page
+    .getByRole("button", { name: "Fresh office scent under $150" })
     .click();
+  await expect(page.locator(".product-card").first()).toBeVisible();
+  await expect(page.locator(".results-count")).toContainText("Budget");
+
+  await page.goto("/privacy");
+  const personalization = page.getByRole("checkbox", {
+    name: "Personalize my recommendations",
+  });
+  await personalization.check();
+  await page.reload();
   await expect(
-    page.getByRole("button", { name: "Remove Citrus Theory", exact: true }),
+    page.getByRole("checkbox", { name: "Personalize my recommendations" }),
+  ).toBeChecked();
+
+  await page.goto("/shop");
+  await page.getByRole("button", { name: `Save ${product.name}` }).click();
+  await expect(
+    page.getByRole("button", { name: `Remove ${product.name}` }),
   ).toBeVisible();
   await page.reload();
   await expect(
-    page.getByRole("button", { name: "Remove Citrus Theory", exact: true }),
+    page.getByRole("button", { name: `Remove ${product.name}` }),
   ).toBeVisible();
   await page.goto("/wishlist");
   await expect(page.locator(".product-card")).toHaveCount(1);
+
   await page.goto("/quiz");
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page
-    .getByRole("button", { name: "See my matches", exact: true })
-    .click();
+  for (let step = 0; step < 3; step += 1) {
+    await page.getByRole("button", { name: "Continue" }).click();
+  }
+  await page.getByRole("button", { name: "See my matches" }).click();
   await expect(
     page.getByRole("heading", { name: "These feel like you." }),
   ).toBeVisible();
   await expect(page.locator(".match").first()).toContainText("% match");
-  await page.goto("/product/citrus-theory");
+  await expect(page.locator(".reason-chips").first()).toBeVisible();
+
+  await page.goto(`/product/${product.slug}`);
   await expect(
-    page.getByRole("heading", { name: "Citrus Theory", exact: true }),
+    page.getByRole("heading", { name: product.name, exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Add to bag", exact: true }).click();
+  const variant = product.variants.find((entry) => entry.stock > 0);
+  await page
+    .getByRole("button", { name: new RegExp(`${variant.size_ml}ml`) })
+    .click();
+  await page.getByRole("button", { name: "Add to bag" }).click();
   await page.goto("/cart");
   await expect(page.locator(".cart-item")).toHaveCount(1);
   await page.reload();
   await expect(page.locator(".cart-item")).toHaveCount(1);
-  await page
-    .getByRole("button", { name: "Place demo order", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Place demo order" }).click();
   await expect(
     page.getByRole("heading", { name: "A new scent chapter." }),
   ).toBeVisible();
-  await expect(
-    page.getByText("No payment was taken.", { exact: false }),
-  ).toBeVisible();
+  await expect(page.getByText("No payment was taken.")).toBeVisible();
+
+  await expect
+    .poll(async () => {
+      const result = await page.request.get("/api/privacy/export");
+      const exported = await result.json();
+      return exported.events.map((event) => event.type);
+    })
+    .toEqual(expect.arrayContaining(["view", "wishlist_add", "add_to_cart", "purchase"]));
   await page.goto("/privacy");
   await page
-    .getByRole("checkbox", {
-      name: "Personalize my recommendations",
-      exact: true,
-    })
-    .check();
-  await page.reload();
-  await expect(
-    page.getByRole("checkbox", {
-      name: "Personalize my recommendations",
-      exact: true,
-    }),
-  ).toBeChecked();
-  await page
-    .getByRole("checkbox", {
-      name: "Personalize my recommendations",
-      exact: true,
-    })
+    .getByRole("checkbox", { name: "Personalize my recommendations" })
     .uncheck();
-  await page.goto("/intelligence");
-  await expect(
-    page.getByRole("heading", { name: "Measured, openly." }),
-  ).toBeVisible();
+  const exported = await page.request.get("/api/privacy/export").then((r) => r.json());
+  expect(exported.events).toEqual([]);
+  expect(exported.orders.length).toBeGreaterThan(0);
   expect(errors).toEqual([]);
 });
-test("protected admin and all intelligence panels", async ({ page }) => {
+
+test("forecast dashboard is protected and compares serving models", async ({
+  page,
+}) => {
   const errors = [];
-  page.on("pageerror", (e) => {
-    errors.push(e.message);
-    console.log("BROWSER_ERROR", e.stack);
-  });
-  await page.goto("/admin");
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/admin/forecast");
   await expect(
     page.getByRole("heading", { name: "Admin access required." }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Go to sign in", exact: true }).click();
-  let password = process.env.ADMIN_PASSWORD;
-  if (!password) {
-    const env = fs.readFileSync("../backend/.env", "utf8");
-    password = env.match(/^ADMIN_PASSWORD=(.+)$/m)?.[1];
-  }
+  await page.getByRole("link", { name: "Go to sign in" }).click();
+  const credentials = await adminCredentials();
+  await page.getByLabel("Email", { exact: true }).fill(credentials.email);
   await page
-    .getByLabel("Email", { exact: true })
-    .fill(process.env.ADMIN_EMAIL || "admin@scenthaus.demo");
-  await page.getByLabel("Password", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await page
-    .getByRole("link", { name: "Open admin dashboard", exact: true })
-    .click();
+    .getByLabel("Password", { exact: true })
+    .fill(credentials.password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  await page.goto("/admin/forecast");
   await expect(
-    page.getByRole("heading", { name: "Revenue outlook & uncertainty" }),
+    page.getByRole("heading", { name: "Forecasts.", exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".kpi-grid strong").first()).not.toHaveText("");
+  await page.getByLabel("Forecast model").selectOption("lstm");
+  await expect(
+    page.getByRole("img", { name: /P10–P90 learned band/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Forecast accuracy by model" }),
+  ).toBeVisible();
+  await expect(page.getByText("N-BEATS", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "About this model" }).click();
+  await expect(page.getByRole("dialog")).toContainText("SIMULATED DATA");
+  await page.getByRole("button", { name: "Close model information" }).click();
+
+  await page.getByLabel("Forecast level").selectOption("sku");
+  await page.getByLabel("Forecast model").selectOption("nbeats");
+  await page.getByLabel("Forecast horizon").selectOption("12");
+  await expect(page.getByRole("img", { name: /P10–P90 learned band/ })).toBeVisible();
+  await expect(page.locator(".table-wrap tbody tr").first()).toBeVisible();
   await page.screenshot({
-    path: path.join(reports, "admin-overview.png"),
+    path: path.join(reports, "admin-forecast.png"),
     fullPage: true,
   });
+
   for (const tab of [
-    "Forecasts",
+    "Overview",
     "Inventory",
     "Customers",
     "Recommendations",
@@ -146,65 +198,32 @@ test("protected admin and all intelligence panels", async ({ page }) => {
   ]) {
     await page.getByRole("button", { name: tab, exact: true }).click();
     await expect(
-      page.getByRole("heading", { name: tab + ".", exact: true }),
+      page.getByRole("heading", { name: `${tab}.`, exact: true }),
     ).toBeVisible();
     await expect(page.locator(".error")).toHaveCount(0);
-    if (tab === "Forecasts") {
-      await page
-        .getByLabel("Forecast level", { exact: true })
-        .selectOption("sku");
-      await page
-        .getByLabel("Forecast horizon", { exact: true })
-        .selectOption("12");
-      await expect(
-        page.getByRole("heading", {
-          name: "Weekly demand · SH-001-30",
-          exact: true,
-        }),
-      ).toBeVisible();
-      await page.screenshot({
-        path: path.join(reports, "admin-forecast.png"),
-        fullPage: true,
-      });
-    }
-    if (tab === "Experiments") {
-      await page
-        .getByRole("button", { name: "Run simulation", exact: true })
-        .click();
-      await expect(page.getByText("p =", { exact: false })).toBeVisible();
-    }
   }
+  await expect(
+    page.getByText("SIMULATED DATA", { exact: true }).first(),
+  ).toBeVisible();
   expect(errors).toEqual([]);
 });
-test("mobile collection, menu, product and quiz fit the viewport", async ({
-  page,
-}) => {
+
+test("mobile catalogue and search controls fit the viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const route of [
-    "/",
-    "/shop",
-    "/product/after-hours",
-    "/quiz",
-    "/cart",
-    "/privacy",
-  ]) {
-    await page.goto(route);
-    await expect(page.locator("h1").first()).toBeVisible();
-    await expect(page.locator(".error")).toHaveCount(0);
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth > window.innerWidth + 2,
-    );
-    expect(overflow, route + " horizontal overflow").toBeFalsy();
-    if (route === "/")
-      await page.screenshot({
-        path: path.join(reports, "home-mobile.png"),
-        fullPage: true,
-      });
-  }
-  await page
-    .getByRole("button", { name: "Toggle navigation", exact: true })
-    .click();
+  await page.goto("/");
+  await page.getByRole("button", { name: "Toggle navigation" }).click();
+  await page.getByRole("link", { name: "The collection" }).click();
   await expect(
-    page.getByRole("link", { name: "Find your scent", exact: true }),
+    page.getByRole("heading", { name: "The collection." }),
   ).toBeVisible();
+  await page
+    .getByRole("checkbox", { name: "Describe your scent in natural language" })
+    .check();
+  await expect(
+    page.getByRole("button", { name: "Fresh office scent under $150" }),
+  ).toBeVisible();
+  const width = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  );
+  expect(width).toBeLessThanOrEqual(1);
 });

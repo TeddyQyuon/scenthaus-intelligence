@@ -10,7 +10,7 @@ import pandas as pd
 import yaml
 from app.catalog import ACCORDS
 from app.database import SessionLocal
-from app.models import QuizProfile, StockWeek
+from app.models import QuizProfile, StockWeek, User
 from app.ml.data import load, validate, frame
 from sqlalchemy import select
 
@@ -29,7 +29,10 @@ def snapshot() -> dict:
         p, v, o, w, e = load(db)
         validation = validate(p, v, o)
         q = frame(
-            db, select(QuizProfile.user_id, QuizProfile.weights, QuizProfile.created_at)
+            db,
+            select(QuizProfile.user_id, QuizProfile.weights, QuizProfile.created_at)
+            .join(User, QuizProfile.user_id == User.id)
+            .where(User.consent.is_(True)),
         )
         stock = frame(db, select(StockWeek.__table__))
     d = config("data")
@@ -41,6 +44,21 @@ def snapshot() -> dict:
     o = o[o.created_at < end]
     w = w[w.created_at < end]
     e = e[e.created_at < end]
+    q = q[q.created_at < end]
+    stock = stock[pd.to_datetime(stock.week) < end]
+    validation["catalog_order_hash"] = validation["data_hash"]
+    import hashlib
+
+    digest = hashlib.sha256(validation["catalog_order_hash"].encode())
+    for name, rows in [("wishes", w), ("events", e), ("quiz", q), ("stock", stock)]:
+        canonical = sorted(
+            json.dumps(row, sort_keys=True, default=str)
+            for row in rows.to_dict("records")
+        )
+        digest.update(name.encode())
+        for row in canonical:
+            digest.update(row.encode())
+    validation["data_hash"] = digest.hexdigest()
     return {
         "products": p.sort_values("id").reset_index(drop=True),
         "variants": v.sort_values("id").reset_index(drop=True),
