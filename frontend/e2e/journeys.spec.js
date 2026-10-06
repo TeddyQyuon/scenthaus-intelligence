@@ -62,9 +62,9 @@ test("real catalog, discovery, consent, wishlist, quiz and demo order", async ({
     page.getByRole("heading", { name: "The collection." }),
   ).toBeVisible();
   await expect(page.locator(".product-card")).toHaveCount(150);
-  await page.getByLabel("House").selectOption("Dior");
+  await page.getByLabel("House", { exact: true }).selectOption("Dior");
   await expect(page.locator(".product-card").first()).toContainText("Dior");
-  await page.getByLabel("House").selectOption("");
+  await page.getByLabel("House", { exact: true }).selectOption("");
 
   await page
     .getByRole("checkbox", { name: "Describe your scent in natural language" })
@@ -182,7 +182,7 @@ test("brand directory searches all 35 houses and filters the collection", async 
     .getByRole("link", { name: "Maison Francis Kurkdjian" })
     .click();
   await expect(page).toHaveURL(/brand=Maison(?:%20|\+)Francis(?:%20|\+)Kurkdjian/);
-  await expect(page.getByLabel("House")).toHaveValue("Maison Francis Kurkdjian");
+  await expect(page.getByLabel("House", { exact: true })).toHaveValue("Maison Francis Kurkdjian");
   await expect(page.locator(".product-card").first()).toContainText(
     "Maison Francis Kurkdjian",
   );
