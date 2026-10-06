@@ -1,4 +1,4 @@
-name: Verify corrected real-catalog browser journeys
+name: Verify fragrance-house storefront journeys
 on:
   push:
     branches: [restore-workspace]
@@ -22,11 +22,11 @@ jobs:
       OPENBLAS_NUM_THREADS: '2'
       ALLOWED_ORIGINS: http://127.0.0.1:5173,http://localhost:5173
       TRAINED_SOURCE: 2e19249ec2030c4b19a1c73336899e1413b78695
-      VERIFIED_SOURCE: bebe4a53604c0eaca58d791615ef677cb1903cc4
+      VERIFIED_SOURCE: bb453d75112238735a0fd89164b11095f49616f1
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: bebe4a53604c0eaca58d791615ef677cb1903cc4
+          ref: bb453d75112238735a0fd89164b11095f49616f1
           fetch-depth: 0
           persist-credentials: false
       - name: Require identical backend, training code and dependencies
@@ -36,8 +36,8 @@ jobs:
           import subprocess
           assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip() == os.environ['VERIFIED_SOURCE']
           changed = subprocess.check_output(['git', 'diff', '--name-only', os.environ['TRAINED_SOURCE'], 'HEAD'], text=True).splitlines()
-          assert set(changed) == {'frontend/e2e/journeys.spec.js', 'frontend/src/Admin.jsx', 'frontend/src/App.jsx'}, changed
-          print('Only the two frontend views and browser journeys changed from the natively trained and Python-tested source.')
+          assert set(changed) == {'PLAN.md', 'README.md', 'docs/deployment.md', 'docs/feature-matrix.md', 'docs/model_cards/forecaster.md', 'docs/model_cards/recommender.md', 'docs/portfolio-entry.md', 'frontend/e2e/journeys.spec.js', 'frontend/src/Admin.jsx', 'frontend/src/App.jsx', 'frontend/src/brands.js', 'frontend/src/styles.css', 'ml/reports/forecast.md', 'ml/reports/operations.md', 'ml/reports/recommender.md', 'reports/deployment.md', 'reports/historical/README.md', 'reports/historical/browser-gut-check.txt', 'reports/historical/browser-tests.txt', 'reports/historical/build.txt', 'reports/historical/latency.json', 'reports/historical/production-api-smoke.json', 'reports/historical/pytest.txt', 'reports/verification.md'}, changed
+          print('Only the expected frontend views, styles, directory, browser journeys and documentation changed; backend, training code and dependencies match the natively tested source.')
           PY
       - uses: actions/setup-python@v5
         with: {python-version: '3.12', cache: pip, cache-dependency-path: 'backend/requirements*.txt'}
@@ -113,7 +113,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: corrected-browser-journey-evidence
+          name: fragrance-house-storefront-evidence
           retention-days: 7
           path: |
             reports/browser-verification.json
@@ -121,3 +121,4 @@ jobs:
             reports/browser-tests.json
             reports/*.png
             frontend/test-results/
+
