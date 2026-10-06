@@ -21,23 +21,23 @@ jobs:
       OMP_NUM_THREADS: '2'
       OPENBLAS_NUM_THREADS: '2'
       ALLOWED_ORIGINS: http://127.0.0.1:5173,http://localhost:5173
-      TRAINED_SOURCE: ea567bfb52ec4019e585ebce23a4847e8dcc24bc
-      VERIFIED_SOURCE: 2e19249ec2030c4b19a1c73336899e1413b78695
+      TRAINED_SOURCE: 2e19249ec2030c4b19a1c73336899e1413b78695
+      VERIFIED_SOURCE: bebe4a53604c0eaca58d791615ef677cb1903cc4
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 2e19249ec2030c4b19a1c73336899e1413b78695
+          ref: bebe4a53604c0eaca58d791615ef677cb1903cc4
           fetch-depth: 0
           persist-credentials: false
-      - name: Require identical application, training code and dependencies
+      - name: Require identical backend, training code and dependencies
         run: |
           python - <<'PY'
           import os
           import subprocess
           assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip() == os.environ['VERIFIED_SOURCE']
           changed = subprocess.check_output(['git', 'diff', '--name-only', os.environ['TRAINED_SOURCE'], 'HEAD'], text=True).splitlines()
-          assert changed and set(changed) <= {'frontend/e2e/journeys.spec.js'}, changed
-          print('Only the browser test file changed from the natively trained and Python-tested source.')
+          assert set(changed) == {'frontend/e2e/journeys.spec.js', 'frontend/src/Admin.jsx', 'frontend/src/App.jsx'}, changed
+          print('Only the two frontend views and browser journeys changed from the natively trained and Python-tested source.')
           PY
       - uses: actions/setup-python@v5
         with: {python-version: '3.12', cache: pip, cache-dependency-path: 'backend/requirements*.txt'}
@@ -55,8 +55,8 @@ jobs:
       - name: Restore immutable artifact from the completed native training run
         uses: actions/download-artifact@v4
         with:
-          artifact-ids: 11389275875
-          run-id: 37409637077
+          artifact-ids: 11389448639
+          run-id: 37411420198
           github-token: ${{ github.token }}
           merge-multiple: true
           path: .
@@ -81,8 +81,8 @@ jobs:
           Path('reports/browser-verification.json').write_text(json.dumps({
               'source': os.environ['VERIFIED_SOURCE'],
               'training_source': os.environ['TRAINED_SOURCE'],
-              'training_run': 37409637077,
-              'training_artifact': 11389275875,
+              'training_run': 37411420198,
+              'training_artifact': 11389448639,
               'python_tests_from_unchanged_source': 65,
               'model_version': model['version'],
               'data_hash': model['metrics']['validation']['data_hash'],
