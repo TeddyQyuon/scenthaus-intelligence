@@ -160,6 +160,9 @@ test("forecast dashboard is protected and compares serving models", async ({
     .getByLabel("Password", { exact: true })
     .fill(credentials.password);
   await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(
+    page.getByRole("link", { name: "Open admin dashboard", exact: true }),
+  ).toBeVisible();
 
   await page.goto("/admin/forecast");
   await expect(
@@ -212,7 +215,10 @@ test("mobile catalogue and search controls fit the viewport", async ({ page }) =
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.getByRole("button", { name: "Toggle navigation" }).click();
-  await page.getByRole("link", { name: "The collection" }).click();
+  await page
+    .getByRole("navigation")
+    .getByRole("link", { name: "The collection", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "The collection." }),
   ).toBeVisible();
