@@ -22,11 +22,11 @@ jobs:
       OPENBLAS_NUM_THREADS: '2'
       ALLOWED_ORIGINS: http://127.0.0.1:5173,http://localhost:5173
       TRAINED_SOURCE: 2e19249ec2030c4b19a1c73336899e1413b78695
-      VERIFIED_SOURCE: 44f670d4aef481acc84a0e696962965cf8bf2e42
+      VERIFIED_SOURCE: 993c694203941f3e6b53ec4caa563a5dd695a04a
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 44f670d4aef481acc84a0e696962965cf8bf2e42
+          ref: 993c694203941f3e6b53ec4caa563a5dd695a04a
           fetch-depth: 0
           persist-credentials: false
       - name: Require identical training code, dependencies and scoped build-lock changes
