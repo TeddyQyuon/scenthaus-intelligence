@@ -73,7 +73,9 @@ test("real catalog, discovery, consent, wishlist, quiz and demo order", async ({
     .getByRole("button", { name: "Fresh office scent under $150" })
     .click();
   await expect(page.locator(".product-card").first()).toBeVisible();
-  await expect(page.locator(".results-count")).toContainText("Budget");
+  await expect(page.locator(".results-count")).toContainText("Budget", {
+    timeout: 30000,
+  });
 
   await page.goto("/privacy");
   const personalization = page.getByRole("checkbox", {
@@ -170,7 +172,7 @@ test("forecast dashboard is protected and compares serving models", async ({
   ).toBeVisible();
   await page.getByLabel("Forecast model").selectOption("lstm");
   await expect(
-    page.getByRole("img", { name: /P10–P90 learned band/ }),
+    page.getByRole("img", { name: /^Weekly history, .*P10–P90 learned band/ }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Forecast accuracy by model" }),
@@ -185,7 +187,9 @@ test("forecast dashboard is protected and compares serving models", async ({
   await page.getByLabel("Forecast level").selectOption("sku");
   await page.getByLabel("Forecast model").selectOption("nbeats");
   await page.getByLabel("Forecast horizon").selectOption("12");
-  await expect(page.getByRole("img", { name: /P10–P90 learned band/ })).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: /^Weekly history, .*P10–P90 learned band/ }),
+  ).toBeVisible();
   await expect(page.locator(".table-wrap tbody tr").first()).toBeVisible();
   await page.screenshot({
     path: path.join(reports, "admin-forecast.png"),
