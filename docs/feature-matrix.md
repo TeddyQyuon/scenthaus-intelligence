@@ -10,7 +10,7 @@ This matrix describes the current `complete-phases-real-catalog` source. It does
 | Demo commerce | Session-backed account, wishlist, cart, demo checkout and order history; no payment or fulfilment | `backend/app/main.py`, `frontend/src/App.jsx` |
 | Consent and privacy | Default-off personalization, ephemeral no-consent quiz, event gate, export and withdrawal | `/privacy/consent`, `/privacy/export`, `/events`, `frontend/src/App.jsx` |
 | Admin | Protected overview, forecast/model picker, accuracy comparison, inventory signals, model registry/health, product and stock controls, exports | `/admin/*`, `frontend/src/Admin.jsx` |
-| Evaluation | Time-based recommendation/search/forecast reports with baselines and explicit synthetic-data limitations | `ml/reports/`, `docs/model_cards/` |
+| Evaluation | Chronological recommendation/forecast evaluations and drafted search labels, with baselines and explicit synthetic-data limitations | `ml/reports/`, `docs/model_cards/` |
 | Serving | Immutable versioned model bundle, integrity checks, Vercel CPU API runtime and quantized ONNX query encoder | `backend/app/ml/serving.py`, `backend/app/vercel_init.py`, `ml/embeddings.py` |
 | Deployment | Vercel Services config, SPA/API routing, protected daily maintenance endpoint, catalog-release guard | `vercel.json`, `backend/app/vercel_init.py` |
 | Verification | Python API/model tests, Ruff, and three Playwright journeys in GitHub Actions | `.github/workflows/ci.yml`, `backend/tests/`, `ml/tests/`, `frontend/e2e/` |

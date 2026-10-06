@@ -44,9 +44,9 @@ The training snapshot has **2,000 simulated users, 78 weeks of history, 150 cata
 | Item CF | 0.03781 | 0.21331 | 0.13731 | 0.97260 | 0.79026 |
 | Content | 0.02420 | 0.13533 | 0.08460 | 0.28082 | 0.23913 |
 | Hybrid | 0.03696 | 0.20821 | 0.13679 | 0.94521 | 0.81786 |
-| Two-tower, full | 0.03743 | 0.21113 | 0.13407 | 0.60959 | 0.75198 |
+| Two-tower, full | 0.03743 | 0.21113 | 0.13405 | 0.60959 | 0.75208 |
 
-Item CF has the highest NDCG among these rows. The two-tower BPR ablation reaches 0.14087 NDCG@10 in this run, but uses one recommender seed. No result establishes real-market preference or commercial uplift.
+Item CF has the highest NDCG among these rows. The two-tower BPR loss ablation scored 0.14087 in `ml/reports/recommender.md`; this single-seed diagnostic does not establish a consistent improvement. No result establishes real-market preference or commercial uplift.
 
 | Search method | MRR@10 | NDCG@10 | Draft queries | Human-reviewed |
 | --- | ---: | ---: | ---: | ---: |
@@ -58,7 +58,7 @@ These labels test the search pipeline and overlap with catalogue text. They are 
 
 | Forecast group | Model | WAPE | sMAPE | MASE | Interval coverage |
 | --- | --- | ---: | ---: | ---: | ---: |
-| SKU | LSTM, 3 seeds | 86.70% | 102.73% | 0.795 | 89.75% |
+| SKU | LSTM, 3 seeds | 86.70% | 102.68% | 0.795 | 89.75% |
 | Category | Seasonal naive | 14.75% | 21.55% | 0.933 | 27.08% |
 
 Forecast scores average three expanding test origins and the first four weeks at each origin. Category interval coverage is poor in this run. LSTM and N-BEATS use learned P10/P50/P90 outputs; baseline bands use validation residuals. These are evaluation results on generated weekly demand, not live sales or calibrated stock guarantees. Full tables and protocols are in [`ml/reports/`](ml/reports/) and the [model cards](docs/model-cards.md).
@@ -118,7 +118,7 @@ The system is a portfolio demonstration, not a real fragrance retailer. It does 
 
 ## Checks
 
-GitHub Actions uses native PostgreSQL, trains the simulated fixture, runs the Python/ML tests and lint, starts the API for three Playwright journeys, and builds the storefront. Local browser tests can be run with `cd frontend && npx playwright install chromium && npm test` after training and starting the API. The latest run and detailed evidence are linked in [verification](reports/verification.md).
+Native CI passed all 65 Python tests with zero skips and Ruff after actual model training. The [verified frontend run](https://github.com/TeddyQyuon/scenthaus-intelligence/actions/runs/37413048770) passed all three Playwright journeys, the production build and the API/Vite/MLflow launcher health checks from a fresh checkout. It verifies unchanged backend/training code and matching model checksums before reusing the native training artifact. Local browser tests can be run with `cd frontend && npx playwright install chromium && npm test` after training and starting the API. Source revisions, model provenance and detailed scope are in [verification](reports/verification.md).
 
 ## Project documents
 

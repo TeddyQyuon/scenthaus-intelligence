@@ -17,10 +17,10 @@ The full two-tower model combines user/item identifiers, recent items, quiz acco
 | Popularity | 0.03195 | 0.18188 | 0.10609 | 0.15068 | 0.35624 |
 | Item CF | 0.03781 | 0.21331 | 0.13731 | 0.97260 | 0.79026 |
 | Hybrid | 0.03696 | 0.20821 | 0.13679 | 0.94521 | 0.81786 |
-| Two-tower, full | 0.03743 | 0.21113 | 0.13407 | 0.60959 | 0.75198 |
+| Two-tower, full | 0.03743 | 0.21113 | 0.13405 | 0.60959 | 0.75208 |
 | Two-tower, BPR ablation | 0.03894 | 0.22532 | 0.14087 | 0.71233 | 0.64216 |
 
-The full two-tower model is below item CF on NDCG in this run. The BPR ablation has the highest NDCG in the table, but it is a single-seed diagnostic and is not presented as a stable win.
+The full two-tower model is below item CF. The BPR ablation has the highest NDCG in this run, but its single-seed result does not establish a consistent improvement over that baseline.
 
 ## Limits and controls
 

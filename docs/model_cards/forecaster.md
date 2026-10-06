@@ -18,11 +18,11 @@ WAPE and sMAPE are percentages; MASE is unitless.
 | --- | --- | ---: | ---: | ---: | ---: |
 | Seasonal naive | SKU | 110.19% | 93.03% | 1.048 | 94.00% |
 | LightGBM | SKU | 97.44% | 141.71% | 0.967 | 84.01% |
-| LSTM | SKU | 86.70% | 102.73% | 0.795 | 89.75% |
+| LSTM | SKU | 86.70% | 102.68% | 0.795 | 89.75% |
 | N-BEATS | SKU | 90.33% | 86.11% | 0.806 | 86.93% |
 | Seasonal naive | Category | 14.75% | 21.55% | 0.933 | 27.08% |
 | LightGBM | Category | 18.95% | 21.79% | 1.028 | 12.50% |
-| LSTM | Category | 30.07% | 34.84% | 1.519 | 100.00% |
+| LSTM | Category | 30.07% | 34.85% | 1.520 | 100.00% |
 | N-BEATS | Category | 37.58% | 43.89% | 1.869 | 100.00% |
 
 The LSTM has the lowest SKU WAPE in this run. Seasonal naive is stronger than both neural models on category WAPE and MASE. Category interval coverage is poor for the baselines and over-wide for the neural models.
