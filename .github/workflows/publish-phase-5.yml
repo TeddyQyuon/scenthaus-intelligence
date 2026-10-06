@@ -29,21 +29,34 @@ jobs:
           manifest = json.loads(Path('release-manifest.json').read_text())
           assert manifest['branch'] == 'complete-phases-real-catalog', 'Unexpected target branch'
           assert re.fullmatch(r'[0-9a-f]{40}', manifest['commit']), 'Invalid source commit'
+          assert re.fullmatch(r'[0-9a-f]{40}', manifest['tree']), 'Invalid source tree'
+          assert re.fullmatch(r'[0-9a-f]{40}', manifest['base_commit']), 'Invalid branch base'
           assert re.fullmatch(r'[0-9a-f]{64}', manifest['bundle_sha256']), 'Invalid bundle digest'
           digest = hashlib.sha256(Path('release-source.bundle').read_bytes()).hexdigest()
           assert digest == manifest['bundle_sha256'], 'Bundle checksum mismatch'
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write('commit=' + manifest['commit'] + '\n')
+              output.write('tree=' + manifest['tree'] + '\n')
+              output.write('base=' + manifest['base_commit'] + '\n')
           print('Verified prepared source: ' + manifest['commit'])
           PY
-      - name: Fast-forward the feature branch to the original prepared commits
+      - name: Publish the exact prepared tree as a descendant of the checked branch head
         env:
           SOURCE_SHA: ${{ steps.release.outputs.commit }}
+          SOURCE_TREE: ${{ steps.release.outputs.tree }}
+          BASE_SHA: ${{ steps.release.outputs.base }}
         run: |
           set -euo pipefail
           git fetch origin complete-phases-real-catalog
+          test "$(git rev-parse origin/complete-phases-real-catalog)" = "$BASE_SHA"
           git bundle verify ./release-source.bundle
           git fetch ./release-source.bundle refs/heads/complete-phases-real-catalog:refs/remotes/recovered/release
           test "$(git rev-parse refs/remotes/recovered/release)" = "$SOURCE_SHA"
-          git merge-base --is-ancestor origin/complete-phases-real-catalog refs/remotes/recovered/release
-          git push origin refs/remotes/recovered/release:refs/heads/complete-phases-real-catalog
+          test "$(git rev-parse "${SOURCE_SHA}^{tree}")" = "$SOURCE_TREE"
+          git diff --quiet "$BASE_SHA" "$SOURCE_SHA" -- .github/workflows
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          RELEASE_SHA=$(printf 'phase 9: publish prepared real-catalog release\n\nPrepared-source: %s\n' "$SOURCE_SHA" | git commit-tree "$SOURCE_TREE" -p "$BASE_SHA")
+          test "$(git rev-parse "${RELEASE_SHA}^{tree}")" = "$SOURCE_TREE"
+          git push origin "$RELEASE_SHA":refs/heads/complete-phases-real-catalog
+          printf 'Published exact source tree `%s` as commit `%s`.\n' "$SOURCE_TREE" "$RELEASE_SHA" >> "$GITHUB_STEP_SUMMARY"
