@@ -1,8 +1,10 @@
+import time
+
 import pytest
 from fastapi.testclient import TestClient
 from main import app
 from app.config import Settings
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
 from app.database import SessionLocal, engine
 from app.models import Product
 from app.vercel_init import build_lock, package_runtime_ml, verify_catalog
@@ -93,3 +95,19 @@ def test_build_lock_serializes_and_releases_on_success_or_failure(fail):
 
     with engine.begin() as contender:
         assert contender.scalar(text("SELECT pg_try_advisory_xact_lock(736284105)"))
+
+
+def test_build_lock_survives_idle_timeout_and_restores_session_setting():
+    isolated = create_engine(engine.url, pool_size=1, max_overflow=0)
+    try:
+        with isolated.begin() as connection:
+            connection.execute(text("SET idle_in_transaction_session_timeout = '250ms'"))
+        with build_lock(isolated):
+            # This pause exceeds the connection's timeout before the local override.
+            time.sleep(0.35)
+        with isolated.begin() as connection:
+            assert connection.scalar(
+                text("SELECT current_setting('idle_in_transaction_session_timeout')")
+            ) == "250ms"
+    finally:
+        isolated.dispose()
