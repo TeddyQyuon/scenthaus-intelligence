@@ -22,22 +22,27 @@ jobs:
       OPENBLAS_NUM_THREADS: '2'
       ALLOWED_ORIGINS: http://127.0.0.1:5173,http://localhost:5173
       TRAINED_SOURCE: 2e19249ec2030c4b19a1c73336899e1413b78695
-      VERIFIED_SOURCE: 993c694203941f3e6b53ec4caa563a5dd695a04a
+      VERIFIED_SOURCE: 7694dcda1720193f9f4195318b57af95d5dac892
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 993c694203941f3e6b53ec4caa563a5dd695a04a
+          ref: 7694dcda1720193f9f4195318b57af95d5dac892
           fetch-depth: 0
           persist-credentials: false
-      - name: Require identical training code, dependencies and scoped build-lock changes
+      - name: Require scoped runtime fixes and unchanged training inputs
         run: |
           python - <<'PY'
           import os
           import subprocess
+          import tomllib
+          baseline = tomllib.loads(subprocess.check_output(['git', 'show', os.environ['TRAINED_SOURCE'] + ':backend/pyproject.toml'], text=True))
+          runtime = tomllib.loads(open('backend/pyproject.toml').read())
+          runtime['project']['dependencies'].remove('PyJWT==2.15.1')
+          assert runtime == baseline, 'Only the missing PyJWT runtime dependency may be added'
           assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip() == os.environ['VERIFIED_SOURCE']
           changed = subprocess.check_output(['git', 'diff', '--name-only', os.environ['TRAINED_SOURCE'], 'HEAD'], text=True).splitlines()
-          assert set(changed) == {'backend/app/vercel_init.py', 'backend/tests/test_vercel.py', 'PLAN.md', 'README.md', 'docs/deployment.md', 'docs/feature-matrix.md', 'docs/model_cards/forecaster.md', 'docs/model_cards/recommender.md', 'docs/portfolio-entry.md', 'frontend/e2e/journeys.spec.js', 'frontend/src/Admin.jsx', 'frontend/src/App.jsx', 'frontend/src/brands.js', 'frontend/src/styles.css', 'ml/reports/forecast.md', 'ml/reports/operations.md', 'ml/reports/recommender.md', 'reports/deployment.md', 'reports/historical/README.md', 'reports/historical/browser-gut-check.txt', 'reports/historical/browser-tests.txt', 'reports/historical/build.txt', 'reports/historical/latency.json', 'reports/historical/production-api-smoke.json', 'reports/historical/pytest.txt', 'reports/verification.md'}, changed
-          print('Only the expected frontend views, styles, directory, browser journeys and documentation changed; the build initializer and its regression tests are the only backend changes; training code and dependencies match the natively tested source.')
+          assert set(changed) == {'backend/pyproject.toml', 'scripts/verify_vercel_runtime.py', 'backend/app/vercel_init.py', 'backend/tests/test_vercel.py', 'PLAN.md', 'README.md', 'docs/deployment.md', 'docs/feature-matrix.md', 'docs/model_cards/forecaster.md', 'docs/model_cards/recommender.md', 'docs/portfolio-entry.md', 'frontend/e2e/journeys.spec.js', 'frontend/src/Admin.jsx', 'frontend/src/App.jsx', 'frontend/src/brands.js', 'frontend/src/styles.css', 'ml/reports/forecast.md', 'ml/reports/operations.md', 'ml/reports/recommender.md', 'reports/deployment.md', 'reports/historical/README.md', 'reports/historical/browser-gut-check.txt', 'reports/historical/browser-tests.txt', 'reports/historical/build.txt', 'reports/historical/latency.json', 'reports/historical/production-api-smoke.json', 'reports/historical/pytest.txt', 'reports/verification.md'}, changed
+          print('The scoped build-lock, runtime dependency and verification changes are allowed; training code and training dependencies are unchanged.')
           PY
       - uses: actions/setup-python@v5
         with: {python-version: '3.12', cache: pip, cache-dependency-path: 'backend/requirements*.txt'}
@@ -114,12 +119,32 @@ jobs:
         working-directory: frontend
       - run: npm test && npm run build
         working-directory: frontend
+      - name: Exercise the packaged API with runtime-only dependencies
+        run: |
+          python - <<'PYRUNTIME'
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+          import tomllib
+          from app.vercel_init import package_runtime_ml, prepare_search_encoder
+          root = Path.cwd()
+          package_runtime_ml(root / 'backend', root)
+          prepare_search_encoder()
+          target = Path('/tmp/scenthaus-runtime-check')
+          subprocess.run([sys.executable, '-m', 'venv', str(target)], check=True)
+          runtime_python = str(target / 'bin/python')
+          dependencies = tomllib.loads(Path('backend/pyproject.toml').read_text())['project']['dependencies']
+          subprocess.run([runtime_python, '-m', 'pip', 'install', *dependencies, 'httpx==0.28.1'], check=True)
+          subprocess.run([runtime_python, 'scripts/verify_vercel_runtime.py'], check=True, env={**os.environ, 'ENVIRONMENT': 'production'})
+          PYRUNTIME
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: fragrance-house-storefront-evidence
           retention-days: 7
           path: |
+            reports/runtime-verification.json
             reports/build-lock-tests.xml
             reports/browser-verification.json
             reports/browser-api.log
