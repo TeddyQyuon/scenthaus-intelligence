@@ -89,17 +89,23 @@ jobs:
               'fixture': 'fresh native PostgreSQL with simulated records',
           }, indent=2))
           PY
-      - name: Start the seeded API and await readiness
+      - run: npm ci
+        working-directory: frontend
+      - name: Start the documented native stack and await all three services
         run: |
-          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > reports/browser-api.log 2>&1 &
+          nohup python scripts/dev.py > reports/browser-api.log 2>&1 &
+          ready=0
           for attempt in $(seq 1 60); do
-            if curl --fail --silent http://127.0.0.1:8000/health > /dev/null; then exit 0; fi
+            if curl --fail --silent http://127.0.0.1:8000/health > /dev/null &&
+               curl --fail --silent http://127.0.0.1:5173 > /dev/null &&
+               curl --fail --silent http://127.0.0.1:5000/health > /dev/null; then
+              ready=1
+              break
+            fi
             sleep 1
           done
           cat reports/browser-api.log
-          exit 1
-      - run: npm ci
-        working-directory: frontend
+          test "$ready" = 1
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
       - run: npm test && npm run build
