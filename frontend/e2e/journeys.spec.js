@@ -143,6 +143,16 @@ test("real catalog, discovery, consent, wishlist, quiz and demo order", async ({
   const exported = await page.request.get("/api/privacy/export").then((r) => r.json());
   expect(exported.events).toEqual([]);
   expect(exported.orders.length).toBeGreaterThan(0);
+  await page.goto("/intelligence");
+  await expect(
+    page.getByRole("columnheader", { name: "NDCG@10", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("row").filter({
+      has: page.getByRole("cell", { name: "cf", exact: true }),
+    }),
+  ).toContainText("0.137");
+  await expect(page.getByRole("main")).not.toContainText("NaN");
   expect(errors).toEqual([]);
 });
 
@@ -210,6 +220,24 @@ test("forecast dashboard is protected and compares serving models", async ({
       page.getByRole("heading", { name: `${tab}.`, exact: true }),
     ).toBeVisible();
     await expect(page.locator(".error")).toHaveCount(0);
+    if (tab === "Recommendations") {
+      await expect(
+        page.getByRole("heading", { name: "Offline evaluation · K = 10", exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("columnheader", { name: "NDCG@10", exact: true }),
+      ).toBeVisible();
+    }
+    if (tab === "Experiments") {
+      await expect(
+        page.getByRole("heading", { name: "Two-tower ablations · K = 10", exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("columnheader", { name: "Validation NDCG@10", exact: true }),
+      ).toBeVisible();
+      await page.getByRole("button", { name: "Run simulation", exact: true }).click();
+      await expect(page.getByText(/Control .*Treatment .*Observed lift/)).toBeVisible();
+    }
   }
   await expect(
     page.getByText("SIMULATED DATA", { exact: true }).first(),
