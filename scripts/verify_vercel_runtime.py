@@ -41,6 +41,12 @@ def main() -> None:
         assert client.get("/api/admin/overview").status_code in {401, 403}
         assert client.get("/api/internal/maintenance").status_code == 401
         checks.append("JWT session issuance and guest/admin/cron access control")
+        authorized = client.get("/api/internal/maintenance", headers={
+            "Authorization": "Bearer " + os.environ["CRON_SECRET"],
+        })
+        assert authorized.status_code == 200, authorized.text
+        assert authorized.json()["task"] == "retention_and_forecast_reconciliation"
+        checks.append("authorized bulk maintenance in the runtime-only API")
 
         search = client.get("/api/search", params={"q": "fresh office scent under $150"})
         assert search.status_code == 200, search.text
