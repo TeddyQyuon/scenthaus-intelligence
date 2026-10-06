@@ -2,9 +2,10 @@ import pytest
 from fastapi.testclient import TestClient
 from main import app
 from app.config import Settings
-from app.database import SessionLocal
+from sqlalchemy import text
+from app.database import SessionLocal, engine
 from app.models import Product
-from app.vercel_init import package_runtime_ml, verify_catalog
+from app.vercel_init import build_lock, package_runtime_ml, verify_catalog
 
 
 def test_vercel_mount_and_cron_auth():
@@ -72,3 +73,23 @@ def test_vercel_ml_packaging_is_self_contained_and_omits_training_data(tmp_path)
     assert (destination / "configs" / "search.yaml").is_file()
     assert (destination / "search.py").is_file()
     assert not (destination / "train_all.py").exists()
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_build_lock_serializes_and_releases_on_success_or_failure(fail):
+    class BuildFailure(Exception):
+        pass
+
+    try:
+        with build_lock(engine):
+            with engine.begin() as contender:
+                assert not contender.scalar(
+                    text("SELECT pg_try_advisory_xact_lock(736284105)")
+                )
+            if fail:
+                raise BuildFailure
+    except BuildFailure:
+        pass
+
+    with engine.begin() as contender:
+        assert contender.scalar(text("SELECT pg_try_advisory_xact_lock(736284105)"))
