@@ -44,7 +44,7 @@ Do not change the public demo alias until the new release passes these checks. C
 
 ## Current account step
 
-The code and Vercel routing are prepared, but the new release is not live. The Vercel project currently has no Preview database URL and its Production database serves the older invented catalogue. The owner needs to create/configure the dedicated Preview and Production databases and environment variables before a deployment can pass initialization. The release guard prevents accidental catalog replacement.
+The source and Vercel routing are published on `complete-phases-real-catalog`, but the new release is not live. The Preview for documentation commit `2120a66` built the frontend and then failed with `Set DATABASE_URL before building the SCENTHAUS API`. The project variables are Production-only and its Production database serves the older invented catalogue. The owner needs to create/configure the dedicated Preview and Production databases and environment variables before a deployment can pass initialization. The release guard prevents accidental catalog replacement.
 
 ## References
 

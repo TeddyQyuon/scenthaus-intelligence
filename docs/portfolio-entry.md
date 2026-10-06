@@ -12,7 +12,7 @@ These results come from generated activity and demand, not a retailer's customer
 
 | Task | Result | Context |
 | --- | --- | --- |
-| Recommendations | Item CF NDCG@10 0.13731; full two-tower 0.13407 | 1,058 users, same 52/13/13-week split; two-tower result uses one seed |
+| Recommendations | Item CF NDCG@10 0.13731; full two-tower 0.13405 | 1,058 users, same 52/13/13-week split; two-tower result uses one seed |
 | Search | Hybrid MRR@10 0.95278, NDCG@10 0.93623 | 60 draft queries; 0 human-reviewed labels |
 | SKU forecast | LSTM WAPE 86.70%, MASE 0.795 | Mean of 3 seeds across 3 test origins; first 4 steps scored |
 | Category forecast | Seasonal-naive WAPE 14.75%, MASE 0.933 | Baseline outperformed both neural methods on category WAPE and MASE |

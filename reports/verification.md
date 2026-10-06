@@ -1,24 +1,36 @@
 # Verification record
 
-**Checked 2026-10-06 against published source commit `00b39de951e185c74a3a60594e5649e52df6c9e7`.** Results below distinguish local checks, discovered browser tests and checks that still require CI or configured accounts.
+**Checked 2026-10-06. Published runtime source: `bebe4a53604c0eaca58d791615ef677cb1903cc4`.** The backend, training code and dependencies are unchanged from native-tested source `2e19249ec2030c4b19a1c73336899e1413b78695`. Its three changed files are the two frontend views and their browser journeys.
 
 | Check | Result | Scope |
 | --- | --- | --- |
-| Python compile | Passed: `python3 -m compileall -q backend/app backend/tests ml` | Syntax only; does not import runtime dependencies or exercise database code. |
-| Ruff | Passed with pinned Ruff 0.14.14 | Includes the corrected `date` import used by the read-only Vercel catalogue guard. |
-| Vercel config parse | Passed: `vercel.json` parses as JSON | Structural JSON check only; not a Vercel deployment validation. |
-| Frontend production build | Passed: `npm run build` | Vite built the storefront and separately loaded admin chunk. |
-| Browser journey inventory | 3 Playwright journeys discovered with `npm test -- --list` | Discovery only; browser journeys were not run in this local workspace. |
-| Python unit/integration tests | Not run locally | The workspace Python lacks SQLAlchemy and the local PostgreSQL/browser test stack is unavailable. GitHub CI is configured to install dependencies, run native PostgreSQL, pytest, Ruff and Playwright. |
-| Diff whitespace | Passed: `git diff --check` | No whitespace errors in the current diff. |
-| Current public API | Responded with the prior generated “Citrus Theory” / “Atelier 08” catalogue | Confirms the current domain is the legacy release; it does not test the un-deployed real-catalogue source. |
-| Vercel Production release | Not verified for the current source | Latest ready Production deployment is the earlier `22c3c35` release. Current project status and missing Preview database configuration are recorded in [`deployment.md`](deployment.md). |
-| Source publication | Passed | Published as `00b39de` on `complete-phases-real-catalog`. Tree `41cf0e958705465c4332c3ba9ba72b95e362d24b` exactly matches prepared commit `560f2a4`. Original phase commits remain in the checksum-verified bundle on `restore-workspace`. |
+| Actual ML training | Passed in native CI | Baselines, two-tower variants, search, LSTM and N-BEATS. Four MLflow receipts identify source `2e19249` and the same dataset hash. |
+| Python unit/integration tests | 65 passed, 0 skipped, 0 errors or failures | Native PostgreSQL after complete model training in [run `37411420198`](https://github.com/TeddyQyuon/scenthaus-intelligence/actions/runs/37411420198). No local full-suite pass is claimed. |
+| Ruff | Passed in native CI and locally with pinned Ruff 0.14.14 | Includes the Vercel catalogue guard's corrected `date` import. |
+| Browser journeys | 3 passed, 0 skipped, 0 failures or flaky tests | [Exact-source run `37413048770`](https://github.com/TeddyQyuon/scenthaus-intelligence/actions/runs/37413048770) used a fresh native PostgreSQL fixture and the immutable trained bundle. |
+| Frontend production build | Passed locally and in exact-source CI | Run `37413048770` built the same published frontend after all three browser journeys passed. |
+| README stack launcher | Passed: API, Vite and MLflow ready | `python scripts/dev.py` passed all three health checks in run `37413048770` from a fresh checkout. Installation, migration, seed and training commands were also exercised by native CI. |
+| Model registration and integrity | Passed in native CI | `app.vercel_init.initialize()` verifies the exact catalogue, model checksums and matching fresh-seed data hash before registering model metadata and forecast snapshots. No training is performed in the browser verification job. |
+| Syntax/config/whitespace | Passed | Python compile, Vercel JSON parse, browser-test JavaScript syntax and `git diff --check`. These are local structural checks. |
+| Vercel Preview | Blocked before API initialization | Published-source Preview built the frontend, then failed because Preview `DATABASE_URL` is missing. |
+| Vercel Production | Current source is not live | Latest ready Production is legacy source `22c3c35`. Required owner setup is recorded in [`deployment.md`](deployment.md). |
 
-The browser journeys cover catalogue counts and images, discovery/search, consent and export/withdrawal, wishlist persistence, quiz results, demo checkout, protected forecast administration, model information, and mobile layout. Their source is [`frontend/e2e/journeys.spec.js`](../frontend/e2e/journeys.spec.js); a passing test run is not claimed here.
+## Training and report provenance
 
-## CI procedure
+The accepted training artifact is `11389448639` from run `37411420198`, with SHA-256 `7f594447df186782c2dbeea15a1e0a5757de2519a9ac342e7cff1ce16e92451c`. The downloaded ZIP matches that digest. Its JUnit receipt records 65 tests with no skips, failures or errors. The four generated evaluation reports in `ml/reports/`, README metrics and model cards use this artifact's measurements.
 
-`.github/workflows/ci.yml` installs CPU PyTorch and training dependencies, starts native PostgreSQL 16, migrates and seeds the synthetic dataset, trains the reported models, runs pytest and Ruff, starts the API, runs Playwright journeys, and builds the frontend. A CI run on the remote revision is required before claiming the full suite passed.
+Serving version: `20261006T040911-15589597-827c10a1`. Simulated dataset hash: `15589597379a864309b5db3ce8e995894c7fa02af58b23848297989141c8faca`. Generated weights, datasets and database files stay outside Git.
 
-The signed-in GitHub editor published the two workflow files. The existing publisher verified the bundle digest, the exact feature branch head, unchanged workflows and the prepared tree before creating a normal descendant commit. It did not force-push or expand token permissions. This record update triggers CI against the published release.
+The full native workflow's browser stage passed the storefront and mobile journeys, then exposed a real React crash: old K=5 metric keys were read from the current K=10 report. The frontend now reads the current metrics and exclusive time cutoffs, displays actual two-tower ablations, and uses reported LightGBM MASE/80% coverage. It no longer reads absent legacy loss curves, elasticity or 95% coverage. Earlier sign-in timing, ambiguous links/chart locators and cold-search timing were also corrected. That full run is not an aggregate CI success; the final frontend is verified separately against its unchanged backend and verified model artifact.
+
+The focused workflow is stored on `restore-workspace`. It pins the tested runtime commit, requires exactly the three expected frontend changes from the native-tested source, restores the artifact by immutable ID, checks the Python receipt, registers models against a matching fresh seed, starts the documented stack, runs all three journeys and builds the frontend. It has read-only repository and Actions permissions. It never connects to Production or publishes a serving release.
+
+The successful focused run's artifact is `11390605167`, SHA-256 `81dfa6b88eabfade11183766ba9612a5a3eda7e2c7b6701f42a38f46099c7501`. Its downloaded ZIP matches that digest. The provenance receipt identifies runtime source `bebe4a5`, training source `2e19249`, training artifact `11389448639`, the model version and matching dataset hash. Its browser JSON records three expected passes, zero skips, zero unexpected results and zero flaky tests. The journeys cover catalogue counts/images, search, default-off consent and export/withdrawal, wishlist/bag persistence, quiz, demo checkout, protected forecasts, every admin panel, the A/B simulator, correct K=10 metrics on the public model page, and mobile layout.
+
+## Source publication
+
+Initial prepared source `560f2a4` was published as `00b39de` with exact tree `41cf0e958705465c4332c3ba9ba72b95e362d24b`. The corrected frontend was reviewed as `5b9aa56` and published as `bebe4a5` with exact tree `f04f0b82abd5c01b1c25c1ad37545d40d66a9eab`. The guarded publisher validates the bundle digest, expected remote head, unchanged workflows and exact source tree before making a normal descendant commit. No force push or token-permission expansion was used.
+
+Original phase 6–9 history is retained in `prepared-phase-6-9.bundle` on the recovery branch, SHA-256 `20f939c9f0883d17956a89f1705e8e62b0ee24176a26a1b091305c7bf2828d8e`. Recovery files are archival and are not the product deployment branch. Earlier invented-catalogue logs are clearly separated under [`historical/`](historical/); they do not verify this release.
+
+The final publication after this runtime commit changes documentation and historical-report locations only. Its runtime files remain identical to the verified source above.

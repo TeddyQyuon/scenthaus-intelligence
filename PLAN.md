@@ -3,10 +3,10 @@ Tick [x] when a phase's Done-when checks pass.
 
 ## Assumptions
 - The user explicitly requested all phases without pauses and Vercel as the deployment target. Do not add Docker or pause between completed phases.
-- The working source is the real-catalogue branch based on phase 6 commit `215eb33`; the phase 7-9 implementation is committed locally as `f3ec1dc`. It has not reached GitHub: shell Git has no CLI credential and the connected GitHub integration rejected repository writes. The remote feature branch remains at phase 5 (`bdc7653`), so its CI and Vercel preview have not run for this source.
+- The phase 6-9 source was published on `complete-phases-real-catalog` at `00b39de`; its file tree exactly matched prepared source `560f2a4`, including the Vercel guard's corrected `date` import. Follow-up commit `2e19249` corrects browser test timing and selectors; `bebe4a5` updates the frontend to the current K=10 metrics and two-tower ablation reports. Original phase commits are retained in `prepared-phase-6-9.bundle` on the recovery branch. Native CI and a Vercel Preview have run against the published source.
 - The current reference catalogue has 150 real fragrances across 35 brands and 297 size variants. Prices, stock, users, quizzes, browsing activity, orders and all model-training behaviour are simulated. Product-source links do not verify authenticity or current availability.
 - The checked-in evaluation reports use a 52/13/13-week recommender split, 60 auto-drafted search queries with zero human reviews, and three expanding forecast origins. They are pipeline measurements, not customer or commercial performance.
-- The current public Vercel alias still returns the older invented catalogue. The Vercel project has database integration variables scoped to Production; the latest feature-branch Preview could not initialize without `DATABASE_URL`. The release guard refuses to change a database whose catalogue is not the exact 150-product release.
+- The current public Vercel alias still uses the older invented catalogue. The Vercel project has database and app variables scoped to Production. The published-source Preview built the frontend, then stopped before initialization because `DATABASE_URL` is missing. The release guard refuses to change a database whose catalogue is not the exact 150-product release.
 - Phase 9 uses Vercel Services and managed PostgreSQL only. A separate empty Preview database and a separate empty Production database are required before first deployment; account configuration remains the owner's step. Never reset or overwrite the existing production database as part of this work.
 - CI is configured for native PostgreSQL and Playwright. Local tests that need PostgreSQL/browser binaries may be unavailable in this workspace; record which checks actually ran in `reports/verification.md`.
 - Hyperparameters are YAML. Data/time splits are chronological. Generated training data and trained weights are not committed.
@@ -119,7 +119,7 @@ Goal: reproducible runs and a one-command stack.
 Done when: the native local process setup serves a verified
 versioned model and a training run appears in MLflow.
 
-[ ] PHASE 7: REACT UI
+[x] PHASE 7: REACT UI
 Goal: storefront and admin pages that use the ML endpoints.
 - If /legacy (old Next.js app) exists, port its components,
   CartContext, quiz and wishlist to React Router; otherwise
@@ -134,7 +134,7 @@ Goal: storefront and admin pages that use the ML endpoints.
 Done when: npm run build passes, the flows work against the
 API, and one smoke test passes.
 
-[ ] PHASE 8: DOCS + RESPONSIBLE AI
+[x] PHASE 8: DOCS + RESPONSIBLE AI
 Goal: a portfolio-ready repo.
 - README: Mermaid architecture diagram, 3-command setup,
   results tables from ml/reports/, ablation findings,
@@ -163,6 +163,5 @@ smoke checks in `docs/deployment.md`.
 Current blocker: the public alias still serves the prior invented
 catalogue and database variables are Production-only. The owner
 must configure new empty Preview and Production databases before
-this phase can be checked complete. The locally committed source
-must also be pushed to the feature branch before CI or Vercel can
-verify it.
+this phase can be checked complete. Source publication is complete;
+the published-source Preview confirms the missing database setup.
