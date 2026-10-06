@@ -226,8 +226,7 @@ export default function Admin() {
       relative_lift: 0.1,
       seed: 42,
     }),
-    [abResult, setAbResult] = useState(null),
-    [experiment, setExperiment] = useState("two_tower");
+    [abResult, setAbResult] = useState(null);
   const tab =
     Object.entries(tabPaths).find(([, path]) => path === location.pathname)?.[0] ||
     "Overview";
@@ -810,12 +809,12 @@ export default function Admin() {
             {tab === "Recommendations" && (
               <>
                 <section className="panel">
-                  <h3>Offline evaluation · K = 5</h3>
+                  <h3>Offline evaluation · K = 10</h3>
                   <MetricsTable metrics={evalData.recommender.metrics} />
                   <p className="metadata">
-                    Time split: validation{" "}
-                    {evalData.recommender.split.validation_start}; test{" "}
-                    {evalData.recommender.split.test_start} to{" "}
+                    Exclusive cutoffs: training ends{" "}
+                    {evalData.recommender.split.train_end}; validation ends{" "}
+                    {evalData.recommender.split.val_end}; test ends{" "}
                     {evalData.recommender.split.test_end}. Tuned weights{" "}
                     {evalData.recommender.weights.join(" / ")} for content / CF
                     / popularity. Serving additionally applies filters and MMR;
@@ -916,57 +915,32 @@ export default function Admin() {
                   )}
                 </section>
                 <section className="panel">
-                  <h3>Neural recommendation experiments</h3>
-                  <select
-                    aria-label="Neural experiment"
-                    value={experiment}
-                    onChange={(e) => setExperiment(e.target.value)}
-                  >
-                    <option value="two_tower">Two-tower</option>
-                    <option value="item2vec">Session skip-gram</option>
-                  </select>
-                  <div className="chart">
-                    <ResponsiveContainer width="100%" height={240}>
-                      <ComposedChart
-                        data={evalData.experiments[
-                          experiment === "two_tower"
-                            ? "two_tower_loss"
-                            : "item2vec_loss"
-                        ].map((loss, i) => ({ epoch: i + 1, loss }))}
-                      >
-                        <XAxis dataKey="epoch" />
-                        <YAxis domain={["auto", "auto"]} />
-                        <Tooltip />
-                        <Line dataKey="loss" stroke="#60704c" dot={false} />
-                      </ComposedChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <p>{evalData.experiments.note}</p>
+                  <h3>Two-tower ablations · K = 10</h3>
+                  <MetricsTable metrics={evalData.two_tower.models} />
                   <p className="metadata">
-                    Opt-in serving: /recommend/user?experiment=two_tower or
-                    item2vec. Neural training loss is not offline recommendation
-                    quality.
+                    Same chronological split and novel-purchase targets as the
+                    baselines. One seed on simulated activity; full is the neural
+                    serving model and BPR is a loss ablation. These comparisons
+                    do not establish real customer preference or commercial uplift.
                   </p>
                 </section>
                 <section className="panel">
-                  <h3>Price response by size</h3>
+                  <h3>Validation-selected training</h3>
                   <Table
-                    rows={evalData.experiments.elasticity.slice(0, 24)}
+                    rows={Object.entries(evalData.two_tower.models).map(
+                      ([name, metrics]) => ({ name, ...metrics }),
+                    )}
                     columns={[
-                      ["sku", "SKU"],
-                      [
-                        "coefficient",
-                        "Log-price coefficient",
-                        (v) => v.toFixed(3),
-                      ],
-                      ["weeks", "Weeks"],
-                      ["r_squared", "Training R²", (v) => v.toFixed(3)],
+                      ["name", "Variant"],
+                      ["epochs", "Selected epochs"],
+                      ["validation_ndcg", "Validation NDCG@10", decimal],
+                      ["users", "Test users"],
                     ]}
                   />
                   <p className="metadata">
-                    Associations from synthetic promotion prices. These
-                    coefficients are not causal elasticity or an automated
-                    pricing recommendation.
+                    Validation chooses the early-stopped epoch count. The test
+                    window stays untouched by model selection; final serving
+                    arrays are refitted through all observed history.
                   </p>
                 </section>
               </>
@@ -1058,7 +1032,7 @@ export default function Admin() {
                     <p>{data.monitor.latency.samples} samples · process only</p>
                   </div>
                   <div>
-                    <span>Forecast WAPE</span>
+                    <span>LightGBM SKU WAPE</span>
                     <strong>{evalData.forecast.wape.toFixed(1)}%</strong>
                     <p>
                       sMAPE {evalData.forecast.smape.toFixed(1)}% · MASE{" "}
@@ -1109,9 +1083,8 @@ export default function Admin() {
                     warnings.
                   </p>
                   <p>
-                    Measured interval coverage: 80% band{" "}
-                    {(evalData.forecast.coverage80 * 100).toFixed(1)}%; 95% band{" "}
-                    {(evalData.forecast.coverage95 * 100).toFixed(1)}%.
+                    Measured LightGBM SKU coverage of the nominal 80% band:{" "}
+                    {(evalData.forecast.coverage80 * 100).toFixed(1)}%.
                   </p>
                   <p>{data.monitor.drift.note}</p>
                   <p className="metadata">{evalData.forecast.interval_note}</p>

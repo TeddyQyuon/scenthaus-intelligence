@@ -1331,31 +1331,33 @@ function Privacy() {
   );
 }
 export function MetricsTable({ metrics }) {
+  const columns = [
+    ["precision", "Precision@10"],
+    ["recall", "Recall@10"],
+    ["ndcg", "NDCG@10"],
+    ["mrr", "MRR@10"],
+    ["coverage", "Coverage"],
+    ["brand_diversity", "Brand diversity"],
+  ];
   return (
     <div className="table-wrap">
       <table>
         <thead>
           <tr>
             <th>Model</th>
-            <th>Precision@5</th>
-            <th>Recall@5</th>
-            <th>NDCG@5</th>
-            <th>Coverage</th>
-            <th>Diversity</th>
+            {columns.map(([key, label]) => (
+              <th key={key}>{label}</th>
+            ))}
           </tr>
         </thead>
         <tbody>
           {Object.entries(metrics || {}).map(([name, m]) => (
             <tr key={name}>
               <td>{name}</td>
-              {[
-                "precision_at_5",
-                "recall_at_5",
-                "ndcg_at_5",
-                "coverage",
-                "diversity",
-              ].map((k) => (
-                <td key={k}>{m[k].toFixed(3)}</td>
+              {columns.map(([key]) => (
+                <td key={key}>
+                  {Number.isFinite(m[key]) ? m[key].toFixed(3) : "—"}
+                </td>
               ))}
             </tr>
           ))}
@@ -1405,10 +1407,10 @@ function Intelligence() {
         <>
           <h2>Measured, openly.</h2>
           <p>
-            Recommendation and search metrics use chronological cutoffs. Forecast
-            metrics average three expanding test origins and score the first four
-            steps at each origin. Full comparisons and protocols are in the model
-            cards below.
+            Recommendation metrics use chronological cutoffs. Search labels are
+            drafted from catalogue rules and have no human review. Forecast metrics
+            average three expanding test origins and score the first four steps at
+            each origin. Full comparisons and protocols are in the model cards below.
           </p>
           <MetricsTable metrics={data.recommender.metrics} />
           <div className="notice">
@@ -1422,16 +1424,16 @@ function Intelligence() {
           </div>
           <div className="kpi-grid">
             <div>
-              <span>Forecast WAPE</span>
+              <span>LightGBM SKU WAPE</span>
               <strong>{data.forecast.wape.toFixed(1)}%</strong>
             </div>
             <div>
-              <span>80% interval coverage</span>
+              <span>LightGBM 80% interval coverage</span>
               <strong>{(data.forecast.coverage80 * 100).toFixed(1)}%</strong>
             </div>
             <div>
-              <span>95% interval coverage</span>
-              <strong>{(data.forecast.coverage95 * 100).toFixed(1)}%</strong>
+              <span>LightGBM SKU MASE</span>
+              <strong>{data.forecast.mase.toFixed(3)}</strong>
             </div>
           </div>
           <p className="metadata">
@@ -1452,7 +1454,7 @@ function Intelligence() {
               ],
               [
                 "Experiments",
-                "Two-tower and item2vec models are optional experiments. Learning curves are training diagnostics. Price-response coefficients are observational and promotion-confounded; experiment outcomes are simulated.",
+                "The two-tower evaluation compares the full model, removed inputs and a BPR loss ablation. Results use one seed and simulated activity; they do not establish real customer preference or commercial uplift.",
               ],
             ].map(([title, copy]) => (
               <article key={title}>
