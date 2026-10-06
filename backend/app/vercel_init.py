@@ -1,16 +1,19 @@
 """Initialize a clean SCENTHAUS demo database during a Vercel build."""
 
+from contextlib import contextmanager
 from datetime import date, datetime
 import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
+from typing import Iterator
 
 from alembic import command
 from alembic.config import Config
 from huggingface_hub import hf_hub_download
 from sqlalchemy import create_engine, select, text
+from sqlalchemy.engine import Engine
 
 from .catalog import FAMILIES, catalog, slugify
 from .config import settings
@@ -183,6 +186,15 @@ def package_runtime_ml(service_root: Path, source_root: Path) -> Path:
     return destination
 
 
+@contextmanager
+def build_lock(lock_engine: Engine) -> Iterator[None]:
+    # Neon keeps an idle transaction active during CPU-only model training.
+    # The direct connection holds the lock until commit or rollback on exit.
+    with lock_engine.begin() as lock:
+        lock.execute(text("SELECT pg_advisory_xact_lock(736284105)"))
+        yield
+
+
 def initialize():
     if os.environ.get("VERCEL") and not os.environ.get("DATABASE_URL"):
         raise RuntimeError(
@@ -197,87 +209,83 @@ def initialize():
         direct_url = "postgresql+psycopg://" + direct_url.split("://", 1)[1]
     lock_engine = create_engine(direct_url) if direct_url else engine
     root = Path(__file__).resolve().parents[1]
-    with lock_engine.connect().execution_options(isolation_level="AUTOCOMMIT") as lock:
-        lock.execute(text("SELECT pg_advisory_lock(736284105)"))
-        try:
-            print("Migrating dedicated PostgreSQL schema", flush=True)
-            alembic = Config(str(root / "alembic.ini"))
-            alembic.set_main_option("script_location", str(root / "alembic"))
-            command.upgrade(alembic, "head")
-            seed()
-            with SessionLocal() as db:
-                verify_catalog(db)
+    with build_lock(lock_engine):
+        print("Migrating dedicated PostgreSQL schema", flush=True)
+        alembic = Config(str(root / "alembic.ini"))
+        alembic.set_main_option("script_location", str(root / "alembic"))
+        command.upgrade(alembic, "head")
+        seed()
+        with SessionLocal() as db:
+            verify_catalog(db)
 
+        model = store.get()
+        if model is not None:
+            from ml.core import snapshot
+
+            if (
+                snapshot()["data_hash"]
+                != model["metrics"]["validation"]["data_hash"]
+            ):
+                print("Serving bundle is stale for this consented dataset", flush=True)
+                model = None
+        if model is None:
+            if not os.environ.get("SCENTHAUS_BUILD_TRAINING"):
+                raise RuntimeError(
+                    "No verified serving bundle is available; run the Vercel build entrypoint"
+                )
+            print("Training the versioned serving bundle from simulated data", flush=True)
+            from ml.train_all import main as train_models
+
+            train_models()
             model = store.get()
-            if model is not None:
-                from ml.core import snapshot
+        if model is None:
+            raise RuntimeError("Model training did not publish a serving bundle")
 
-                if (
-                    snapshot()["data_hash"]
-                    != model["metrics"]["validation"]["data_hash"]
-                ):
-                    print("Serving bundle is stale for this consented dataset", flush=True)
-                    model = None
-            if model is None:
-                if not os.environ.get("SCENTHAUS_BUILD_TRAINING"):
-                    raise RuntimeError(
-                        "No verified serving bundle is available; run the Vercel build entrypoint"
+        if os.environ.get("VERCEL"):
+            prepare_search_encoder()
+
+        with SessionLocal() as db:
+            version = model["version"]
+            if not db.get(ModelRun, version):
+                db.add(
+                    ModelRun(
+                        version=version,
+                        metrics=model["metrics"],
+                        data_hash=model["metrics"]["validation"]["data_hash"],
                     )
-                print("Training the versioned serving bundle from simulated data", flush=True)
-                from ml.train_all import main as train_models
-
-                train_models()
-                model = store.get()
-            if model is None:
-                raise RuntimeError("Model training did not publish a serving bundle")
-
-            if os.environ.get("VERCEL"):
-                prepare_search_encoder()
-
-            with SessionLocal() as db:
-                version = model["version"]
-                if not db.get(ModelRun, version):
-                    db.add(
-                        ModelRun(
-                            version=version,
-                            metrics=model["metrics"],
-                            data_hash=model["metrics"]["validation"]["data_hash"],
-                        )
-                    )
-                    for series in model["forecast"]["series"]:
-                        origin = datetime.fromisoformat(
-                            series["history"][-1]["week"]
-                        ).date()
-                        for row in series["forecast"]:
-                            db.add(
-                                ForecastSnapshot(
-                                    version=version,
-                                    sku=series["sku"],
-                                    origin=origin,
-                                    target_week=datetime.fromisoformat(
-                                        row["week"]
-                                    ).date(),
-                                    **{
-                                        key: row[key]
-                                        for key in [
-                                            "prediction",
-                                            "lower80",
-                                            "upper80",
-                                            "lower95",
-                                            "upper95",
-                                        ]
-                                    },
-                                )
+                )
+                for series in model["forecast"]["series"]:
+                    origin = datetime.fromisoformat(
+                        series["history"][-1]["week"]
+                    ).date()
+                    for row in series["forecast"]:
+                        db.add(
+                            ForecastSnapshot(
+                                version=version,
+                                sku=series["sku"],
+                                origin=origin,
+                                target_week=datetime.fromisoformat(
+                                    row["week"]
+                                ).date(),
+                                **{
+                                    key: row[key]
+                                    for key in [
+                                        "prediction",
+                                        "lower80",
+                                        "upper80",
+                                        "lower95",
+                                        "upper95",
+                                    ]
+                                },
                             )
-                    db.commit()
-            if os.environ.get("VERCEL"):
-                package_runtime_ml(root, root.parent)
-            print(
-                "Database initialized; serving artifacts verified. Historical orders are simulated.",
-                flush=True,
-            )
-        finally:
-            lock.execute(text("SELECT pg_advisory_unlock(736284105)"))
+                        )
+                db.commit()
+        if os.environ.get("VERCEL"):
+            package_runtime_ml(root, root.parent)
+        print(
+            "Database initialized; serving artifacts verified. Historical orders are simulated.",
+            flush=True,
+        )
 
 
 if __name__ == "__main__":
