@@ -175,7 +175,9 @@ test("forecast dashboard is protected and compares serving models", async ({
   await expect(
     page.getByRole("heading", { name: "Forecast accuracy by model" }),
   ).toBeVisible();
-  await expect(page.getByText("N-BEATS", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("cell", { name: "N-BEATS", exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "About this model" }).click();
   await expect(page.getByRole("dialog")).toContainText("SIMULATED DATA");
   await page.getByRole("button", { name: "Close model information" }).click();
