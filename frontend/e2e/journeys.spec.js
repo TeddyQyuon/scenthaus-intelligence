@@ -30,7 +30,7 @@ async function adminCredentials() {
   };
 }
 
-test("real catalog, discovery, consent, wishlist, quiz and demo order", async ({
+test("real catalog, discovery, consent, wishlist, quiz and secure checkout", async ({
   page,
 }) => {
   const errors = [];
@@ -124,11 +124,14 @@ test("real catalog, discovery, consent, wishlist, quiz and demo order", async ({
   await expect(page.locator(".cart-item")).toHaveCount(1);
   await page.reload();
   await expect(page.locator(".cart-item")).toHaveCount(1);
-  await page.getByRole("button", { name: "Place demo order" }).click();
-  await expect(
-    page.getByRole("heading", { name: "A new scent chapter." }),
-  ).toBeVisible();
-  await expect(page.getByText("No payment was taken.")).toBeVisible();
+  await page.getByRole("link", { name: /Continue to checkout/ }).click();
+  await expect(page.getByRole("heading", { name: "A scent worth coming home to." })).toBeVisible();
+  await expect(page.getByLabel("Email address", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Postal code", { exact: true })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Order summary" })).toContainText(`${variant.size_ml}ml`);
+  // CI deliberately has no payment credentials. It must fail closed and retain the bag.
+  await expect(page.getByRole("button", { name: /Pay now/ })).toBeDisabled();
+  await expect(page.getByText("Secure payments are temporarily unavailable. Your bag is saved.")).toBeVisible();
 
   await expect
     .poll(async () => {
@@ -136,14 +139,14 @@ test("real catalog, discovery, consent, wishlist, quiz and demo order", async ({
       const exported = await result.json();
       return exported.events.map((event) => event.type);
     })
-    .toEqual(expect.arrayContaining(["view", "wishlist_add", "add_to_cart", "purchase"]));
+    .toEqual(expect.arrayContaining(["view", "wishlist_add", "add_to_cart"]));
   await page.goto("/privacy");
   await page
     .getByRole("checkbox", { name: "Personalize my recommendations" })
     .uncheck();
   const exported = await page.request.get("/api/privacy/export").then((r) => r.json());
   expect(exported.events).toEqual([]);
-  expect(exported.orders.length).toBeGreaterThan(0);
+  expect(exported.orders).toEqual([]);
   await page.goto("/intelligence");
   await expect(
     page.getByRole("columnheader", { name: "NDCG@10", exact: true }),
