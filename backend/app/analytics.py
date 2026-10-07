@@ -3,7 +3,7 @@ from collections import defaultdict
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from .models import Order, OrderItem, Variant, Product, Event, User
 
 
@@ -26,7 +26,7 @@ def date_range(start=None, end=None):
 def overview(db, start=None, end=None):
     lo, hi = date_range(start, end)
     orders = db.scalars(
-        select(Order).where(Order.created_at >= lo, Order.created_at < hi)
+        select(Order).where(Order.created_at >= lo, Order.created_at < hi, or_(Order.payment_status.is_(None), Order.payment_status == "paid"))
     ).all()
     ids = [o.id for o in orders]
     line_rows = (
@@ -148,7 +148,7 @@ def segments(db):
             func.sum(Order.total),
         )
         .join(User, Order.user_id == User.id)
-        .where(User.consent == True)
+        .where(User.consent == True, or_(Order.payment_status.is_(None), Order.payment_status == "paid"))
         .group_by(Order.user_id)
     ).all()
     if len(orders) < 3:

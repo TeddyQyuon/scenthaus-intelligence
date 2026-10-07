@@ -7,7 +7,7 @@ import numpy as np
 from fastapi import FastAPI, Depends, HTTPException, Request, Response, Query
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select, delete, update, text, func
+from sqlalchemy import select, delete, update, text, func, or_
 from sqlalchemy.exc import IntegrityError
 from sklearn.metrics.pairwise import cosine_similarity
 from .config import settings
@@ -31,6 +31,7 @@ from .ml.experiments import ab_simulate
 from .ml.metrics import metrics as forecast_metrics
 from .analytics import overview, segments, date_range
 from .account_security import router as security_router, check_rate_limit, record_event, verify_factor
+from .checkout import router as checkout_router, public_order
 
 from contextlib import asynccontextmanager
 
@@ -55,6 +56,7 @@ app = FastAPI(
     redoc_url=None,
 )
 app.include_router(security_router)
+app.include_router(checkout_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.origins,
@@ -261,7 +263,7 @@ def history(db, user):
         select(OrderItem, Variant)
         .join(Variant, OrderItem.variant_id == Variant.id)
         .join(Order, OrderItem.order_id == Order.id)
-        .where(Order.user_id == user.id)
+        .where(Order.user_id == user.id, or_(Order.payment_status.is_(None), Order.payment_status == "paid"))
     ):
         values[v.product_id] += item.quantity * 3
     for e in db.scalars(
@@ -591,6 +593,8 @@ def personal_export(user=Depends(user_required), db=Depends(get_db)):
         ],
         "quiz": profile.answers if profile else None,
         "orders": order_list(user, db),
+        "checkout_orders": [public_order(order, db) for order in db.scalars(
+            select(Order).where(Order.user_id == user.id, Order.order_number.is_not(None)))],
         "security_history": [
             {"kind": event.kind, "success": event.success,
              "created_at": event.created_at.isoformat() + "Z",
@@ -764,63 +768,8 @@ def remove_cart(vid: int, user=Depends(user_required), db=Depends(get_db)):
 
 
 @app.post("/checkout")
-def checkout(body: Checkout, user=Depends(user_required), db=Depends(get_db)):
-    if not settings.demo_mode:
-        raise HTTPException(
-            503, "Payment integration is required before accepting real orders"
-        )
-    db.execute(select(User).where(User.id == user.id).with_for_update())
-    existing = db.scalar(
-        select(Order).where(
-            Order.user_id == user.id, Order.idempotency_key == body.idempotency_key
-        )
-    )
-    if existing:
-        return {
-            "id": existing.id,
-            "total": float(existing.total),
-            "status": existing.status,
-            "charged": False,
-        }
-    items = db.scalars(select(CartItem).where(CartItem.user_id == user.id)).all()
-    if not items:
-        raise HTTPException(409, "Your bag is empty")
-    order = Order(user_id=user.id, total=0, idempotency_key=body.idempotency_key)
-    db.add(order)
-    db.flush()
-    total = 0
-    for item in items:
-        v = db.get(Variant, item.variant_id)
-        if db.get(Product, v.product_id).hidden:
-            db.rollback()
-            raise HTTPException(409, "Product no longer available")
-        changed = db.execute(
-            update(Variant)
-            .where(Variant.id == v.id, Variant.stock >= item.quantity)
-            .values(stock=Variant.stock - item.quantity)
-        )
-        if changed.rowcount != 1:
-            db.rollback()
-            raise HTTPException(409, "Stock changed. Review your bag.")
-        total += float(v.price) * item.quantity
-        db.add(
-            OrderItem(
-                order_id=order.id,
-                variant_id=v.id,
-                quantity=item.quantity,
-                unit_price=v.price,
-            )
-        )
-        functional_event(db, user, v.product_id, "purchase")
-    order.total = round(total, 2)
-    db.execute(delete(CartItem).where(CartItem.user_id == user.id))
-    db.commit()
-    return {
-        "id": order.id,
-        "total": float(order.total),
-        "status": order.status,
-        "charged": False,
-    }
+def checkout(user=Depends(user_required)):
+    raise HTTPException(410, "Continue to secure checkout to complete your purchase.")
 
 
 def order_list(user, db):
@@ -830,6 +779,9 @@ def order_list(user, db):
             "total": float(o.total),
             "created_at": str(o.created_at),
             "status": o.status,
+            "order_number": o.order_number,
+            "payment_status": o.payment_status,
+            "payment_mode": o.payment_mode,
         }
         for o in db.scalars(
             select(Order)
@@ -1328,7 +1280,7 @@ def export(
                 "simulated": o.simulated,
             }
             for o in db.scalars(
-                select(Order).where(Order.created_at >= lo, Order.created_at < hi)
+                select(Order).where(Order.created_at >= lo, Order.created_at < hi, or_(Order.payment_status.is_(None), Order.payment_status == "paid"))
             )
         ]
     else:

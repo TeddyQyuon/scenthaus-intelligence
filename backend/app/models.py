@@ -203,6 +203,28 @@ class Order(Base):
     status = Column(String(30), default="demo_completed", nullable=False)
     simulated = Column(Boolean, default=False, nullable=False)
     idempotency_key = Column(String(100))
+    order_number = Column(String(32), unique=True)
+    customer_name = Column(String(120))
+    customer_email = Column(String(254))
+    customer_phone = Column(String(24))
+    delivery_address = Column(JSON)
+    subtotal_minor = Column(Integer)
+    shipping_minor = Column(Integer)
+    discount_minor = Column(Integer)
+    tax_minor = Column(Integer)
+    total_minor = Column(Integer)
+    currency = Column(String(3))
+    payment_status = Column(String(20))
+    stripe_session_id = Column(String(255), unique=True)
+    stripe_payment_intent_id = Column(String(255), unique=True)
+    stripe_checkout_url = Column(String(2048))
+    checkout_fingerprint = Column(String(64))
+    payment_mode = Column(String(4))
+    stock_reserved = Column(Boolean, default=False, nullable=False)
+    expires_at = Column(DateTime)
+    paid_at = Column(DateTime)
+    updated_at = Column(DateTime, default=now, nullable=False)
+    refunded_minor = Column(Integer, default=0, nullable=False)
     __table_args__ = (UniqueConstraint("user_id", "idempotency_key"),)
 
 
@@ -215,11 +237,26 @@ class OrderItem(Base):
     variant_id = Column(Integer, ForeignKey("variants.id"), nullable=False)
     quantity = Column(Integer, nullable=False)
     unit_price = Column(Numeric(10, 2), nullable=False)
+    product_snapshot = Column(JSON)
     __table_args__ = (
         CheckConstraint("quantity > 0"),
         CheckConstraint("unit_price > 0"),
         UniqueConstraint("order_id", "variant_id"),
     )
+
+
+class OrderNumberCounter(Base):
+    __tablename__ = "order_number_counters"
+    year = Column(Integer, primary_key=True)
+    value = Column(Integer, nullable=False, default=0)
+
+
+class StripeWebhookEvent(Base):
+    __tablename__ = "stripe_webhook_events"
+    id = Column(String(255), primary_key=True)
+    event_type = Column(String(100), nullable=False)
+    order_id = Column(String(36), ForeignKey("orders.id"), nullable=False)
+    created_at = Column(DateTime, default=now, nullable=False)
 
 
 class ModelRun(Base):
