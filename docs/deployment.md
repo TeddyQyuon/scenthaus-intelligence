@@ -58,3 +58,7 @@ The first clean Preview completed seed/training but exposed an idle-lock connect
 - [FastAPI on Vercel](https://vercel.com/docs/frameworks/backend/fastapi)
 - [Python runtime file inclusion](https://vercel.com/docs/functions/runtimes/python)
 - [Vercel Cron Jobs](https://vercel.com/docs/cron-jobs)
+
+## Stripe payment deployment
+
+The existing Vercel Services architecture also serves the secure Checkout API and raw-body webhook endpoint. Configure Production variables and register the exact mode-specific webhook as described in [Stripe checkout](stripe-checkout.md). Keep branch previews on separate databases and test credentials. The checkout release does not migrate to Docker or reset the catalogue.
