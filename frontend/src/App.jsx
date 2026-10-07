@@ -31,6 +31,7 @@ import {
 import { ShopProvider, SessionBoundary, useShop } from "./context";
 import { api, money, message, download } from "./api";
 import QuickAdd from "./QuickAdd";
+import AccountSecurity from "./AccountSecurity";
 import { BRAND_HOUSES } from "./brands";
 const Admin = lazy(() => import("./Admin"));
 function Scroll() {
@@ -133,7 +134,7 @@ export function ProductCard({ product: p, rec }) {
       >
         <Plus size={15} /> {variant ? "Quick add" : "Sold out"}
       </button>
-      {quickOpen && <QuickAdd product={p} onClose={() => setQuickOpen(false)} />}
+      {quickOpen && <QuickAdd product={p} recommendationId={rec?.recommendation_id} onClose={() => setQuickOpen(false)} />}
       {!!p.reason_tags?.length && (
         <div className="reason-chips" aria-label="Why this scent was suggested">
           {p.reason_tags.map((tag) => (
@@ -174,6 +175,7 @@ export function Grid({ products, rec, limit }) {
 }
 function Layout() {
   const { cart, wishlist } = useShop();
+  const bagQuantity = cart.items.reduce((total, item) => total + item.quantity, 0);
   const [open, setOpen] = useState(false);
   const loc = useLocation();
   useEffect(() => {
@@ -214,10 +216,10 @@ function Layout() {
           </Link>
           <Link
             to="/cart"
-            aria-label={`Shopping bag, ${cart.items.length} items`}
+            aria-label={`Shopping bag, ${bagQuantity} items`}
           >
             <ShoppingBag size={20} />
-            {cart.items.length > 0 && <i>{cart.items.length}</i>}
+            {bagQuantity > 0 && <i>{bagQuantity}</i>}
           </Link>
           <button
             className="icon mobile-menu"
@@ -696,7 +698,8 @@ function Shop() {
 }
 function Product() {
   const { slug } = useParams(),
-    { add, wish, wishlist, track, notify } = useShop();
+    { add, wish, wishlist, track, notify, user, sessionReady } = useShop();
+  const viewed = useRef(null);
   const [p, setP] = useState(null),
     [selected, setSelected] = useState(null),
     [sections, setSections] = useState([]),
@@ -707,32 +710,34 @@ function Product() {
     setP(null);
     api
       .get(`/products/${slug}`)
-      .then(async (r) => {
+      .then((r) => {
         if (!active) return;
         setP(r.data);
         setSelected(
           r.data.variants.find((v) => v.stock > 0) || r.data.variants[0],
         );
-        track(r.data.id);
-        const types = [
-          "similar",
-          "also-bought",
-          ...(!r.data.in_stock ? ["substitutes"] : []),
-        ];
-        const values = await Promise.all(
-          types.map((type) =>
-            api
-              .get(`/recommend/${type}`, { params: { product_id: r.data.id } })
-              .then((v) => ({ type, ...v.data })),
-          ),
-        );
-        if (active) setSections(values);
       })
       .catch((e) => active && setError(message(e)));
     return () => {
       active = false;
     };
   }, [slug]);
+  useEffect(() => {
+    if (!p || !sessionReady) return;
+    let active = true;
+    setSections([]);
+    const types = ["similar", "also-bought", ...(!p.in_stock ? ["substitutes"] : [])];
+    Promise.all(types.map((type) => api.get(`/recommend/${type}`, { params: { product_id: p.id } }).then((r) => ({ type, ...r.data }))))
+      .then((values) => active && setSections(values))
+      .catch(() => {});
+    return () => { active = false; };
+  }, [p?.id, sessionReady, user.consent]);
+  useEffect(() => {
+    if (p && sessionReady && user.consent && viewed.current !== p.id) {
+      viewed.current = p.id;
+      track(p.id);
+    }
+  }, [p?.id, sessionReady, user.consent]);
   if (error)
     return (
       <section className="section">
@@ -1210,7 +1215,9 @@ function Account() {
     [credentials, setCredentials] = useState({ email: "", password: "" }),
     [orders, setOrders] = useState([]),
     [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [mfaRequired, setMfaRequired] = useState(false),
+    [otpCode, setOtpCode] = useState("");
   useEffect(() => {
     if (!user.guest)
       api
@@ -1223,7 +1230,16 @@ function Account() {
     setBusy(true);
     setError("");
     try {
-      await accept((await api.post(`/auth/${mode}`, credentials)).data);
+      const result = (await api.post(`/auth/${mode}`, { ...credentials, otp_code: otpCode || undefined })).data;
+      if (result.mfa_required) {
+        setMfaRequired(true);
+      } else {
+        await accept(result);
+        setCredentials({ email: "", password: "" });
+        setOtpCode("");
+        setMfaRequired(false);
+        setMode("login");
+      }
     } catch (er) {
       setError(message(er));
     } finally {
@@ -1234,8 +1250,8 @@ function Account() {
     return (
       <section className="account-page">
         <p className="eyebrow">YOUR SCENT SPACE</p>
-        <h1>{mode === "login" ? "Welcome back." : "Make it yours."}</h1>
-        <p>Your bag and wishlist will stay with you.</p>
+        <h1>{mfaRequired ? "One more step." : mode === "login" ? "Welcome back." : "Make it yours."}</h1>
+        <p>{mfaRequired ? "Enter a fresh code from your authenticator app or a recovery code." : "Your bag and wishlist will stay with you."}</p>
         <form onSubmit={submit}>
           <label>
             Email
@@ -1244,6 +1260,7 @@ function Account() {
               type="email"
               autoComplete="email"
               value={credentials.email}
+              readOnly={mfaRequired}
               onChange={(e) =>
                 setCredentials((c) => ({ ...c, email: e.target.value }))
               }
@@ -1260,17 +1277,19 @@ function Account() {
                 mode === "login" ? "current-password" : "new-password"
               }
               value={credentials.password}
+              readOnly={mfaRequired}
               onChange={(e) =>
                 setCredentials((c) => ({ ...c, password: e.target.value }))
               }
             />
           </label>
+          {mfaRequired && <label>Verification code<input required autoFocus autoComplete="one-time-code" maxLength={40} value={otpCode} onChange={(e) => setOtpCode(e.target.value)} /></label>}
           <p className="metadata">At least 10 characters.</p>
           <ErrorBox error={error} />
           <button disabled={busy}>
             {busy
               ? "Please wait…"
-              : mode === "login"
+              : mfaRequired ? "Verify & sign in" : mode === "login"
                 ? "Sign in"
                 : "Create account"}{" "}
             <ArrowRight size={16} />
@@ -1278,12 +1297,15 @@ function Account() {
         </form>
         <button
           className="why"
+          disabled={busy}
           onClick={() => {
-            setMode(mode === "login" ? "register" : "login");
+            setMode(mfaRequired ? "login" : mode === "login" ? "register" : "login");
             setError("");
+            setMfaRequired(false);
+            setOtpCode("");
           }}
         >
-          {mode === "login"
+          {mfaRequired ? "Back to sign in" : mode === "login"
             ? "New here? Create an account"
             : "Already have an account? Sign in"}
         </button>
@@ -1317,6 +1339,7 @@ function Account() {
         </button>
       </div>
       <ErrorBox error={error} />
+      <AccountSecurity />
       <div className="preferences">
         <h3>Your preferences</h3>
         <label className="check-row">
@@ -1414,6 +1437,7 @@ function Privacy() {
           model features. We never ask for card details in this demonstration.
       </p>
       <h2>When you opt out</h2>
+      <p>Account security records include sign-in times, device details, IP addresses and approximate locations when available. They protect your account independently of personalization. Security history is kept for 90 days; sessions expire after seven days.</p>
       <p>
         We delete your tracking events, recommendation references and quiz
         profile. Functional cart, wishlist and orders remain available. Your
