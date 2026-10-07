@@ -4,11 +4,13 @@ This report distinguishes implementation tests from actual hosted payment verifi
 
 ## Local implementation checks
 
-- 34 checkout backend contract/security tests passed. They use the real Stripe signature verifier and isolated SQLite locally; native CI uses isolated PostgreSQL schemas and actual concurrency.
-- 14 frontend unit tests passed: seven storefront regressions and seven checkout regressions.
+- 35 checkout backend contract/security tests passed. They use the real Stripe signature verifier and isolated SQLite locally; native CI uses isolated PostgreSQL schemas and actual concurrency.
+- 15 frontend unit tests passed: seven storefront regressions and eight checkout regressions.
 - Production Vite build passed; Ruff passed; diff whitespace checks passed.
 - Covered authoritative integer prices, forbidden client totals/discounts, identity and quantity validation, stale price/stock, stable idempotency/retries, ownership/CSRF, direct success reads, signed payment confirmation, signature/timestamp/mode/amount rejection, async payment success/failure, declined-card retries, cancellation/expiry, partial/full refunds and stock reconciliation.
 - Mobile and desktop browser checkout regression journeys added to the native CI suite; these fail closed when CI payment credentials are absent.
+
+- The actual Stripe test API accepted the server SDK parameters, SGD currency and 12,990-cent validation amount; that session was expired without payment. This validates API compatibility, not completed-payment fulfilment.
 
 ## Deployment and real Stripe verification
 
