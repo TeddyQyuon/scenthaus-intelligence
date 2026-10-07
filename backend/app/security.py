@@ -1,5 +1,8 @@
 import hashlib, hmac, secrets
 import jwt
+import os
+from ipaddress import ip_address
+from urllib.parse import unquote
 from datetime import timedelta
 from fastapi import Depends, HTTPException, Request, Response
 from sqlalchemy import select
@@ -38,7 +41,33 @@ def session_user(request, db):
     )
 
 
-def issue(user, response, db):
+def request_details(request: Request | None) -> dict:
+    if request is None:
+        return {}
+    # Vercel overwrites these headers. Never trust forwarded metadata locally.
+    trusted_edge = os.environ.get("VERCEL") == "1"
+    raw_ip = (
+        request.headers.get("x-vercel-forwarded-for", "").split(",")[0].strip()
+        if trusted_edge
+        else request.client.host if request.client else ""
+    )
+    try:
+        address = str(ip_address(raw_ip))
+    except ValueError:
+        address = None
+    location = None
+    if trusted_edge:
+        city = unquote(request.headers.get("x-vercel-ip-city", ""))[:100]
+        country = request.headers.get("x-vercel-ip-country", "")[:3]
+        location = ", ".join(part for part in [city, country] if part) or None
+    return {
+        "ip_address": address,
+        "user_agent": request.headers.get("user-agent", "")[:512] or None,
+        "location": location,
+    }
+
+
+def issue(user, response, db, request: Request | None = None):
     token = jwt.encode(
         {
             "sub": user.id,
@@ -56,6 +85,9 @@ def issue(user, response, db):
             token_hash=digest(token),
             user_id=user.id,
             expires_at=now() + timedelta(days=7),
+            created_at=now(),
+            last_seen_at=now(),
+            **request_details(request),
         )
     )
     db.commit()
@@ -83,6 +115,10 @@ def user_required(request: Request, db=Depends(get_db)):
             csrf(request.cookies.get("scenthaus_session", "")),
         ):
             raise HTTPException(403, "CSRF check failed")
+    session = db.get(Session, digest(request.cookies["scenthaus_session"]))
+    if session.last_seen_at is None or session.last_seen_at < now() - timedelta(minutes=5):
+        session.last_seen_at = now()
+        db.commit()
     return user
 
 
@@ -100,6 +136,7 @@ def identity(user, token):
             "role": user.role,
             "consent": user.consent,
             "guest": user.email is None,
+            "two_factor_enabled": bool(user.totp_secret),
         },
         "csrf": token,
     }
