@@ -190,3 +190,8 @@ scope and evidence are in `reports/deployment.md` and
 ## Authorized continuation: Stripe checkout
 
 The user authorized completing, committing/pushing and deploying this integration, and updating the portfolio. Earlier prepared-release or approval-blocked notes above are historical. The storefront release and first portfolio update have been pushed and deployed. Stripe test-mode implementation, deployment and hosted verification are in progress; configuration and merchant limits are in `docs/stripe-checkout.md`.
+
+
+## Completed authorized release — 2026-10-07
+
+Stripe runtime `2398d7504b3a014105aca83f22655153ca8c02a8` passed full native CI (119 backend, 15 frontend, 12 browser tests) and is deployed/promoted. Actual public hosted test payment confirmed one numbered order; genuine-event retries, refresh, decline and cancellation were verified. Secrets and webhook configuration are server-only; no source/bundle/history matches. Portfolio `9b0001c4b908f8dd0cd2573f35d47e8cd802f6b3` is Ready with actual checkout/confirmation screenshots. See `reports/stripe-verification.md` for exact source, tests, environment variables, endpoints, files and remaining merchant launch requirements. No live charge or dispatch is enabled.

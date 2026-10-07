@@ -119,7 +119,7 @@ The system is a portfolio demonstration, not a real fragrance retailer. It does 
 
 ## Checks
 
-Native CI passed all 65 Python tests with zero skips and Ruff after actual model training. The [verified frontend run](https://github.com/TeddyQyuon/scenthaus-intelligence/actions/runs/37413048770) passed all three Playwright journeys, the production build and the API/Vite/MLflow launcher health checks from a fresh checkout. It verifies unchanged backend/training code and matching model checksums before reusing the native training artifact. Local browser tests can be run with `cd frontend && npx playwright install chromium && npm test` after training and starting the API. Source revisions, model provenance and detailed scope are in [verification](reports/verification.md).
+The final Stripe runtime source `2398d750` passed [native CI run 37598572781](https://github.com/TeddyQyuon/scenthaus-intelligence/actions/runs/37598572781): 119 Python tests with PostgreSQL, 15 frontend unit tests, 12 Playwright journeys, actual model training, Ruff and the frontend production build. Actual deployed Stripe test payment, original signed webhook confirmation, decline, cancellation, refresh and three genuine-event retries passed. See [complete Stripe verification](reports/stripe-verification.md) and [configuration](docs/stripe-checkout.md). Historical model evaluation and earlier checks remain in [verification](reports/verification.md).
 
 ## Project documents
 
