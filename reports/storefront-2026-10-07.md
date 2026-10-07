@@ -48,3 +48,8 @@ The six executed regressions exercise home rendering before session completion, 
 ## Release continuation
 
 After explicit authorization to push and deploy, publish the prepared local commits to `complete-phases-real-catalog` without force pushing. Run the configured CI, then deploy to the existing `scenthaus-intelligence` Vercel project with its existing Production environment. Verify home rendering, 150 products / 35 houses, size-specific bag addition, wishlist/account routes and mobile dialog layout. Do not change or reset databases.
+
+## Publishing continuation
+Source `4f5c294` matched the prepared frontend tree exactly. Native CI completed actual model training, Python tests, Ruff and six frontend unit tests; seven of eight browser journeys passed. The consented product-view event was missed when public rendering beat session initialization, so the combined release records the view when both product data and a consented session are ready.
+Git-triggered Production build `dpl_BDWoS5qzJjAxMbdS61xqVemvSDjX` failed before seed/training because Production already had migration 0003, absent from GitHub. The live CLI deployment contains the account-security extension and atomic bag additions. Those existing deployed files, tests and dependencies were recovered from Vercel Source, with matching SHA-1 file checksums, and merged with the public-loading improvements. The database was not reset, restamped or replaced.
+Quick add retains fresh availability checks, explicit size selection, quantity controls, exact total, focus restoration and native Escape dismissal. Mutations wait for the session, prevent rapid repeated submissions and increment quantities atomically on the server. Source and hosted checks for this combined release remain pending.
