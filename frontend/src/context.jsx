@@ -51,15 +51,12 @@ export function ShopProvider({ children }) {
     mutations.current.add(v.id);
     try {
       await ensureSession();
-      await api.put("/cart", {
+      const response = await api.post("/cart/add", {
         variant_id: v.id,
-        quantity: Math.min(
-          10,
-          (cartRef.current.items.find((i) => i.variant_id === v.id)?.quantity || 0) +
-            quantity,
-        ),
+        quantity,
       });
-      await refresh();
+      cartRef.current = response.data;
+      setCart(response.data);
       setToast(`${v.size_ml} ml added to your bag`);
     } finally { mutations.current.delete(v.id); }
   }
