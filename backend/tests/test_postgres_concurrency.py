@@ -14,7 +14,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_concurrent_same_user_checkout_is_exactly_once(client):
+def test_concurrent_retired_checkout_never_consumes_stock(client):
     client.put("/cart", json={"variant_id": 4, "quantity": 1})
     with SessionLocal() as db:
         before = db.get(Variant, 4).stock
@@ -29,6 +29,7 @@ def test_concurrent_same_user_checkout_is_exactly_once(client):
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         a, b = list(pool.map(lambda _: checkout(), range(2)))
-    assert a.status_code == b.status_code == 200 and a.json()["id"] == b.json()["id"]
+    assert a.status_code == b.status_code == 410
+    assert client.get("/cart").json()["items"][0]["quantity"] == 1
     with SessionLocal() as db:
-        assert db.get(Variant, 4).stock == before - 1
+        assert db.get(Variant, 4).stock == before

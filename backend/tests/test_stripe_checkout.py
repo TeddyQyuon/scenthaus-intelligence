@@ -113,6 +113,8 @@ def test_minor_units_and_server_authoritative_total(payments):
     assert response["total_minor"] == 25980
     assert params["line_items"][0]["price_data"]["unit_amount"] == 12990
     assert params["line_items"][0]["quantity"] == 2
+    assert params["adaptive_pricing"] == {"enabled": False}
+    assert params["branding_settings"]["display_name"] == "SCENTHAUS"
     assert params["success_url"].startswith("https://scenthaus.example/checkout/success")
     assert params["payment_intent_data"]["shipping"]["address"]["country"] == "SG"
     with payments.db() as db:
