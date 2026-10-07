@@ -1,0 +1,42 @@
+{
+  "checked_at": "2026-10-06T13:10:56.503Z",
+  "source": "7694dcda1720193f9f4195318b57af95d5dac892",
+  "deployment": "dpl_ETd1JVrzTfR55k2KsTgihq1faYcz",
+  "target": "preview",
+  "database": "scenthaus-reference-preview",
+  "health": {
+    "status": "ok",
+    "models_ready": true,
+    "demo_mode": true
+  },
+  "products": 150,
+  "brands": 35,
+  "variants": 297,
+  "search": {
+    "status": 200,
+    "results": 12,
+    "parsed": {
+      "budget": 150,
+      "size_ml": null,
+      "gender": null,
+      "season": null,
+      "text": "fresh office scent"
+    },
+    "model_version": "20261006T130203-15589597-36ae7611"
+  },
+  "access": {
+    "guest_admin": 401,
+    "unauthenticated_maintenance": 401
+  },
+  "browser": [
+    "all 35 houses visible in directory",
+    "Hermès directory search and encoded brand filter: four results",
+    "wishlist and quick bag persisted through reload",
+    "simulated checkout completed; no payment taken",
+    "four-step quiz returns explained matches with personalization off",
+    "privacy default is off",
+    "public model tables render and version matches search",
+    "four edit product photos loaded"
+  ],
+  "scope": "Hosted guest journey; administrator login and protected forecasts were verified in isolated runtime-only CI, not through hosted admin login."
+}

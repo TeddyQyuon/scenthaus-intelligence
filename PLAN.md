@@ -6,11 +6,11 @@ Tick [x] when a phase's Done-when checks pass.
 - The phase 6-9 source was published on `complete-phases-real-catalog` at `00b39de`; its file tree exactly matched prepared source `560f2a4`, including the Vercel guard's corrected `date` import. Follow-up commit `2e19249` corrects browser test timing and selectors; `bebe4a5` updates the frontend to the current K=10 metrics and two-tower ablation reports. Original phase commits are retained in `prepared-phase-6-9.bundle` on the recovery branch. Native CI and a Vercel Preview have run against the published source.
 - The current reference catalogue has 150 real fragrances across 35 brands and 297 size variants. Prices, stock, users, quizzes, browsing activity, orders and all model-training behaviour are simulated. Product-source links do not verify authenticity or current availability.
 - The checked-in evaluation reports use a 52/13/13-week recommender split, 60 auto-drafted search queries with zero human reviews, and three expanding forecast origins. They are pipeline measurements, not customer or commercial performance.
-- The current public Vercel alias still uses the older invented catalogue. The Vercel project has database and app variables scoped to Production. The published-source Preview built the frontend, then stopped before initialization because `DATABASE_URL` is missing. The release guard refuses to change a database whose catalogue is not the exact 150-product release.
-- Phase 9 uses Vercel Services and managed PostgreSQL only. A separate empty Preview database and a separate empty Production database are required before first deployment; account configuration remains the owner's step. Never reset or overwrite the existing production database as part of this work.
+- The public domain serves the verified 35-house / 150-product release. Separate Neon databases are now connected to Preview and Production; the old catalogue database is preserved with a `LEGACY` variable prefix. Production tracks `complete-phases-real-catalog` and uses manual promotion during release checks.
+- Phase 9 uses Vercel Services and managed PostgreSQL only. The first correctly configured build completed training but exposed an idle connection shutdown when releasing its session lock. Source `7694dcda` uses a transaction-scoped advisory lock so the direct connection remains active through training and releases safely on commit or rollback. Never reset or overwrite the existing legacy database.
 - CI is configured for native PostgreSQL and Playwright. Local tests that need PostgreSQL/browser binaries may be unavailable in this workspace; record which checks actually ran in `reports/verification.md`.
 - Hyperparameters are YAML. Data/time splits are chronological. Generated training data and trained weights are not committed.
-- The user requested the 35 named houses and a Sephora-inspired shop. All 35 already exist in the reference catalogue; the follow-up refresh exposes them through searchable brand navigation and gives SCENTHAUS its own beauty-retail layout. This source update does not complete the database-dependent live release in Phase 9.
+- The user requested the 35 named houses and a Sephora-inspired shop. All 35 already exist in the reference catalogue; the follow-up refresh exposes them through searchable brand navigation and gives SCENTHAUS its own beauty-retail layout. The storefront source passed full native CI (65 Python tests, four browser journeys, Ruff and frontend build). The final source passed nine native runtime/build-lock/maintenance tests, four browser journeys, Ruff, build and isolated runtime API verification before Production promotion.
 
 ## Phases
 
@@ -149,8 +149,8 @@ Goal: a portfolio-ready repo.
   demo and repo links
 Done when: a fresh clone runs using only the README commands.
 
-[ ] PHASE 9: VERCEL DEPLOY PREP
-Goal: prepare a Vercel-only release; the owner handles database and account setup.
+[x] PHASE 9: VERCEL DEPLOY PREP
+Goal: deploy and verify the Vercel release with separate Preview and Production databases.
 - Frontend: Vercel SPA service with same-origin `/api` calls
 - API: FastAPI service, safe build-time setup, CPU ONNX inference,
   CORS origins from env and health check
@@ -161,8 +161,14 @@ Done when: an isolated Vercel Preview and Production deployment
 run against their dedicated clean databases and pass the release
 smoke checks in `docs/deployment.md`.
 
-Current blocker: the public alias still serves the prior invented
-catalogue and database variables are Production-only. The owner
-must configure new empty Preview and Production databases before
-this phase can be checked complete. Source publication is complete;
-the published-source Preview confirms the missing database setup.
+Current release checks complete: Preview source `7694dcda` and Production
+source `618a1d1` are Ready and verified against dedicated Neon databases.
+Run `37558473333` passed nine native PostgreSQL tests, Ruff, four browser
+journeys, the build and isolated runtime-only API checks. Production was
+manually promoted; the alias is healthy and semantic search uses the
+registered model. Authorized daily maintenance returned 200 in 1.83s.
+Hosted guest shopping and access restrictions were checked; privileged
+admin/forecast flows were checked in isolated native CI. The portfolio
+card and case study are live with the new cover and demo link. Detailed
+scope and evidence are in `reports/deployment.md` and
+`reports/release-2026-10-06/`.

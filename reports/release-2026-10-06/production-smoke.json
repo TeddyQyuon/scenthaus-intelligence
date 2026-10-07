@@ -1,0 +1,41 @@
+{
+  "checked_at": "2026-10-07",
+  "source": "618a1d1a170cc4183ab9ff59751dbde523f5a421",
+  "deployment": "dpl_CK5urixvbqqjkdZMBZmgeowbebwG",
+  "target": "production",
+  "promoted": true,
+  "url": "https://scenthaus-intelligence.vercel.app/shop",
+  "model_version": "20261006T134630-d486f55f-651788c8",
+  "checks": {
+    "health_status": 200,
+    "models_ready": true,
+    "products_status": 200,
+    "products": 150,
+    "brands": 35,
+    "variants": 297,
+    "semantic_search_status": 200,
+    "search_budget": 150,
+    "maintenance_unauthenticated_status": 401,
+    "maintenance_authorized_status": 200,
+    "maintenance_timestamp": "2026-10-07T01:47:19.176Z",
+    "maintenance_user_agent": "vercel-cron/1.0",
+    "maintenance_execution_seconds": 1.83,
+    "maintenance_response_seconds": 2.1
+  },
+  "scope": "Hosted API and authorized Vercel Cron checks. Guest shopping flows on unchanged frontend were previously verified in Preview and Production source 7694dcda; privileged admin/forecast flows are verified by isolated native CI, not hosted admin login.",
+  "ci": {
+    "run": 37558473333,
+    "artifact": 11455219018,
+    "sha256": "057c8839a54c8ffe90a6d2d8f2848301f9c60b6c7b731945cc02dc109bc5bb60",
+    "native_tests": 9,
+    "browser_journeys": 4,
+    "runtime_only_maintenance": true
+  },
+  "portfolio": {
+    "source": "cd1f59d2cc562b5aae53ed9e7b36bba71c48446f",
+    "deployment": "dpl_8PXaP554wxSNYQVcpYLx6rgRrsrC",
+    "case_study": "https://teddy-qyuon-portfolio.vercel.app/projects/scenthaus-intelligence",
+    "homepage": "https://teddy-qyuon-portfolio.vercel.app/#projects",
+    "verified": "New cover, Live demo link, 35/150 counts and no pending-database notice on homepage and case study."
+  }
+}

@@ -1,8 +1,8 @@
 # SCENTHAUS Intelligence
 
-[Public demo — legacy release](https://scenthaus-intelligence.vercel.app/) · [Portfolio case study](https://teddy-qyuon-portfolio.vercel.app/projects/scenthaus-intelligence) · [Source repository](https://github.com/TeddyQyuon/scenthaus-intelligence) · [Deployment status](reports/deployment.md)
+[Live fragrance shop](https://scenthaus-intelligence.vercel.app/) · [Portfolio case study](https://teddy-qyuon-portfolio.vercel.app/projects/scenthaus-intelligence) · [Source repository](https://github.com/TeddyQyuon/scenthaus-intelligence) · [Deployment status](reports/deployment.md)
 
-> The public Vercel alias currently serves an older demo with an invented catalogue. This source revision contains the 150-product reference catalogue and is not live until a separate clean Preview and Production database is configured.
+> The live shop contains all 35 requested fragrance houses, 150 product references and 297 size variants, with searchable brand navigation and quick bag actions. Preview and Production use separate Neon databases. Prices, stock and checkout are simulated. See [release evidence](reports/deployment.md).
 
 SCENTHAUS Intelligence — a fragrance storefront built with React and Python, featuring personalized recommendations, demand forecasting and inventory analytics. Order history is simulated; reported results demonstrate the pipeline and methods, not real customer performance.
 

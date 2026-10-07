@@ -1,0 +1,14 @@
+{
+  "source": "618a1d1a170cc4183ab9ff59751dbde523f5a421",
+  "environment": "isolated runtime-only venv; httpx is the test transport",
+  "training_packages_absent": true,
+  "model_version": "20261006T040911-15589597-827c10a1",
+  "checks": [
+    "database health and checksum-verified model startup",
+    "150 products and 35 brands",
+    "JWT session issuance and guest/admin/cron access control",
+    "authorized bulk maintenance in the runtime-only API",
+    "pinned ONNX semantic search without training dependencies",
+    "JWT authentication, protected admin and model-versioned forecasts"
+  ]
+}
