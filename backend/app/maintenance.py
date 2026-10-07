@@ -7,6 +7,8 @@ from .config import settings
 
 def maintain():
     with SessionLocal() as db:
+        from .checkout import reconcile_expired
+        reconcile_expired(db)
         cutoff = now() - timedelta(days=settings.retention_days)
         for model in [Event, RecommendationRequest]:
             db.execute(delete(model).where(model.created_at < cutoff))
@@ -26,6 +28,7 @@ def maintain():
                 FROM order_items oi
                 JOIN orders o ON o.id = oi.order_id
                 JOIN variants v ON v.id = oi.variant_id
+                WHERE o.payment_status IS NULL OR o.payment_status = 'paid'
                 GROUP BY v.sku, CAST(o.created_at AS DATE)
             ), totals AS (
                 SELECT due.sku, due.target_week,

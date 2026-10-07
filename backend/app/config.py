@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import model_validator
+from pydantic import SecretStr, model_validator
 
 
 class Settings(BaseSettings):
@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     admin_email: str = "admin@scenthaus.demo"
     admin_password: str = ""
     demo_mode: bool = True
+    stripe_secret_key: SecretStr = SecretStr("")
+    stripe_webhook_secret: SecretStr = SecretStr("")
+    checkout_public_url: str = "http://localhost:5173"
     mlflow_tracking_uri: str = "sqlite:///" + str(
         Path(__file__).resolve().parents[1] / "mlflow.db"
     )
@@ -24,6 +27,16 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def secure(self):
+        from urllib.parse import urlsplit
+        checkout_url = urlsplit(self.checkout_public_url)
+        if (checkout_url.scheme not in {"http", "https"} or not checkout_url.netloc
+                or checkout_url.username or checkout_url.password or checkout_url.query
+                or checkout_url.fragment or checkout_url.path not in {"", "/"}):
+            raise ValueError("CHECKOUT_PUBLIC_URL must be a trusted site origin")
+        if self.environment == "production" and checkout_url.scheme != "https":
+            # Unconfigured payments remain unavailable; the storefront still starts.
+            if self.stripe_secret_key.get_secret_value():
+                raise ValueError("Production checkout requires HTTPS")
         if self.database_url.startswith(("postgres://", "postgresql://")):
             self.database_url = (
                 "postgresql+psycopg://" + self.database_url.split("://", 1)[1]
