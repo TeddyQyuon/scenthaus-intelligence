@@ -78,23 +78,18 @@ def test_recommendation_attribution(client):
     )
 
 
-def test_checkout_idempotency_and_server_prices(client):
+def test_legacy_demo_checkout_is_removed(client):
     with SessionLocal() as db:
-        v = db.get(Variant, 1)
-        stock = v.stock
-        price = float(v.price)
+        stock = db.get(Variant, 1).stock
     client.put("/cart", json={"variant_id": 1, "quantity": 1})
-    body = {"idempotency_key": "test-idempotency-12345"}
-    a = client.post("/checkout", json=body)
-    b = client.post("/checkout", json=body)
-    assert a.status_code == 200 and a.json() == b.json()
-    assert a.json()["total"] == price and not a.json()["charged"]
-    assert client.get("/cart").json()["items"] == []
+    for _ in range(2):
+        assert client.post("/checkout", json={"idempotency_key": "retired-demo-key"}).status_code == 410
+    assert len(client.get("/cart").json()["items"]) == 1
     with SessionLocal() as db:
-        assert db.get(Variant, 1).stock == stock - 1
+        assert db.get(Variant, 1).stock == stock
 
 
-def test_atomic_stock_rollback(client):
+def test_retired_checkout_cannot_consume_stock(client):
     client.put("/cart", json={"variant_id": 2, "quantity": 1})
     client.put("/cart", json={"variant_id": 3, "quantity": 1})
     with SessionLocal() as db:
@@ -108,7 +103,7 @@ def test_atomic_stock_rollback(client):
             client.post(
                 "/checkout", json={"idempotency_key": "test-rollback-123456"}
             ).status_code
-            == 409
+            == 410
         )
         with SessionLocal() as db:
             assert db.get(Variant, 2).stock == before
