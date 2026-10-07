@@ -16,6 +16,7 @@ async function fixture(page) {
     const url = new URL(route.request().url());
     let body = {};
     if (url.pathname === "/api/products") body = { products: [product], brands: ["Dior"] };
+    if (url.pathname === "/api/products/test-perfume") body = product;
     if (url.pathname === "/api/auth/session") body = session;
     if (url.pathname === "/api/cart") body = { items: [], total: 0 };
     if (url.pathname === "/api/wishlist" || url.pathname === "/api/recommend/user") body = { products: [] };
@@ -59,8 +60,8 @@ test("quick add uses the chosen size and prevents duplicate submission on mobile
   const writes = [];
   let release;
   const hold = new Promise((resolve) => { release = resolve; });
-  await page.route("**/api/cart", async (route) => {
-    if (route.request().method() === "PUT") {
+  await page.route("**/api/cart/add", async (route) => {
+    if (route.request().method() === "POST") {
       writes.push(route.request().postDataJSON());
       expect(route.request().headers()["x-csrf-token"]).toBe("fixture-csrf");
       await hold;
@@ -72,17 +73,17 @@ test("quick add uses the chosen size and prevents duplicate submission on mobile
   await opener.click();
   const dialog = page.getByRole("dialog", { name: "Test fragrance" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("button", { name: /50 ml/ })).toBeDisabled();
-  await dialog.getByRole("button", { name: /100 ml/ }).click();
-  await expect(dialog.getByRole("button", { name: /100 ml/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(dialog.getByRole("radio", { name: /50ml/ })).toBeDisabled();
+  await dialog.getByRole("radio", { name: /100ml/ }).check();
+  await expect(dialog.getByRole("radio", { name: /100ml/ })).toBeChecked();
   await dialog.getByRole("button", { name: "Add to bag", exact: true }).click();
-  await expect(dialog.getByRole("button", { name: "Adding to bag…" })).toBeDisabled();
+  await expect(dialog.getByRole("button", { name: "Adding…" })).toBeDisabled();
   await expect.poll(() => writes.length).toBe(1);
   expect(writes).toEqual([{ variant_id: "size-100", quantity: 1 }]);
   release();
-  await expect(dialog.getByRole("heading", { name: "In your bag." })).toBeVisible();
-  await expect(dialog).toContainText("100 ml");
-  await dialog.getByRole("button", { name: "Keep exploring" }).click();
+  await expect(dialog).toContainText("Added 1 × 100ml");
+  await expect(dialog).toContainText("100ml");
+  await dialog.getByRole("button", { name: "Continue shopping" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(opener).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
@@ -91,21 +92,22 @@ test("quick add uses the chosen size and prevents duplicate submission on mobile
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
-test("quick add waits for an existing bag before calculating its new quantity", async ({ page }) => {
+test("quick add waits for the session and increments the existing bag atomically", async ({ page }) => {
   await fixture(page);
   let release;
   const hold = new Promise((resolve) => { release = resolve; });
   await page.route("**/api/auth/session", async (route) => { await hold; await route.fulfill({ json: session }); });
   const writes = [];
-  await page.route("**/api/cart", async (route) => {
-    if (route.request().method() === "PUT") writes.push(route.request().postDataJSON());
+  await page.route("**/api/cart/add", async (route) => {
+    if (route.request().method() === "POST") writes.push(route.request().postDataJSON());
     await route.fulfill({ json: { items: [{ variant_id: "size-30", quantity: 2 }], total: 180 } });
   });
   await page.goto("/");
   await page.getByRole("button", { name: "Quick add Test fragrance" }).first().click();
+  await page.getByRole("dialog").getByRole("radio", { name: /30ml/ }).check();
   await page.getByRole("dialog").getByRole("button", { name: "Add to bag", exact: true }).click();
   expect(writes).toEqual([]);
   release();
-  await expect(page.getByRole("heading", { name: "In your bag." })).toBeVisible();
-  expect(writes).toEqual([{ variant_id: "size-30", quantity: 3 }]);
+  await expect(page.getByRole("dialog")).toContainText("Added 1 × 30ml");
+  expect(writes).toEqual([{ variant_id: "size-30", quantity: 1 }]);
 });
