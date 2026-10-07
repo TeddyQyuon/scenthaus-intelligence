@@ -92,3 +92,16 @@ it("refund confirmation does not say that payment never completed", async () => 
   await screen.findByRole("heading", { name: "Your refund is recorded." });
   expect(screen.queryByText(/No completed payment is recorded/)).toBeNull();
 });
+
+it("fresh quote rotates an expired request key while retaining keys for open sessions", async () => {
+  sessionStorage.setItem("scenthaus.checkout.request.v1", "expired-request-key");
+  const first = show(CheckoutPage);
+  await screen.findByRole("button", { name: /Pay now/ });
+  const nextKey = sessionStorage.getItem("scenthaus.checkout.request.v1");
+  expect(nextKey).not.toBe("expired-request-key");
+  first.unmount();
+  api.get.mockResolvedValue({ data: { ...quote, pending_order: { order_id: "order-one", delivery: { email: "test@example.com", full_name: "Test Customer", line1: "1 Test Street", line2: "", phone: "", postal_code: "123456", city: "Singapore", country: "SG" } } } });
+  show(CheckoutPage);
+  await screen.findByRole("button", { name: /Resume payment/ });
+  expect(sessionStorage.getItem("scenthaus.checkout.request.v1")).toBe(nextKey);
+});
