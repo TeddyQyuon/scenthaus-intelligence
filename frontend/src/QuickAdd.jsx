@@ -216,7 +216,7 @@ export default function QuickAdd({ product, onClose, recommendationId }) {
               View full product details
             </Link>
             <p className="metadata">
-              Demo prices and stock. No payment is taken.
+              Review delivery and secure payment at checkout.
             </p>
           </form>
         )}

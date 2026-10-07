@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { ShopProvider, SessionBoundary, useShop } from "./context";
 import { api, money, message, download } from "./api";
+import { CheckoutPage, CheckoutSuccess, CheckoutCancelled, OrderDetail } from "./Checkout";
 import QuickAdd from "./QuickAdd";
 import AccountSecurity from "./AccountSecurity";
 import { BRAND_HOUSES } from "./brands";
@@ -184,7 +185,7 @@ function Layout() {
   return (
     <>
       <div className="announcement">
-        Real fragrance references · simulated prices and stock · demo only.{" "}
+        Fragrance, thoughtfully discovered. Singapore · SGD.{" "}
         <Link to="/quiz">
           Find your scent <ArrowRight size={12} />
         </Link>
@@ -242,9 +243,8 @@ function Layout() {
           </Link>
           <p>Fragrance, with a little more feeling.</p>
           <p className="metadata">
-            A portfolio demonstration. Real fragrance references and sourced
-            photographs. Prices, stock, customers and orders are simulated;
-            there are no real sales or fulfilment.
+            Fragrance discovery with secure checkout powered by Stripe. Historical
+            recommendation and forecasting insights use simulated data.
           </p>
         </div>
         <div>
@@ -514,8 +514,8 @@ function Shop() {
       <h1>The collection.</h1>
       <p className="intro">Explore 150 fragrance references across 35 houses. Follow a note, find a feeling, and discover your next signature.</p>
       <p className="notice">
-        Reference catalogue only. Prices and stock are simulated, and demo
-        checkout does not take payment or fulfil orders.
+        Explore bottle sizes and prices, then review your selection with secure
+        Stripe Checkout.
       </p>
       <details
         className="brand-directory"
@@ -690,7 +690,7 @@ function Shop() {
         </div>
       )}
       <p className="metadata">
-        Product photographs are sourced from manufacturers and retailers. Prices and stock are simulated. Gender labels are catalogue descriptors;
+        Product photographs are sourced from manufacturers and retailers. Gender labels are catalogue descriptors;
         every scent is for anyone.
       </p>
     </section>
@@ -835,7 +835,7 @@ function Product() {
             </span>
           </div>
           <p className="metadata">
-            Real fragrance catalog. Demo prices, stock and orders. Source and style annotations shown below.
+            Fragrance reference information. Source and style annotations shown below.
           </p>
           {p.source && <p className="metadata"><a href={p.source.product_url} target="_blank" rel="noreferrer">View {p.source.source_kind} product source ↗</a><br />Season, accord and occasion labels are curated suggestions. Images remain the property of their respective owners.</p>}
         </div>
@@ -1065,10 +1065,7 @@ function Wishlist() {
 function Cart() {
   const { cart, refresh, notify } = useShop(),
     [recs, setRecs] = useState(null),
-    [order, setOrder] = useState(null),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
-  const key = useRef(crypto.randomUUID().replaceAll("-", ""));
+    [error] = useState("");
   useEffect(() => {
     api
       .get("/recommend/cart")
@@ -1080,40 +1077,10 @@ function Cart() {
       if (q < 1) await api.delete(`/cart/${v}`);
       else await api.put("/cart", { variant_id: v, quantity: q });
       await refresh();
-      key.current = crypto.randomUUID().replaceAll("-", "");
     } catch (e) {
       notify(message(e));
     }
   }
-  async function checkout() {
-    setBusy(true);
-    setError("");
-    try {
-      setOrder(
-        (await api.post("/checkout", { idempotency_key: key.current })).data,
-      );
-      await refresh();
-    } catch (e) {
-      setError(message(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-  if (order)
-    return (
-      <section className="section centered">
-        <Check size={48} />
-        <p className="eyebrow">YOUR DEMO ORDER IS COMPLETE</p>
-        <h1>A new scent chapter.</h1>
-        <p>No payment was taken. Your order was saved and inventory updated.</p>
-        <p className="metadata">
-          Order {order.id} · {money(order.total)}
-        </p>
-        <Link className="button" to="/shop">
-          Keep exploring
-        </Link>
-      </section>
-    );
   return (
     <section className="section">
       <p className="eyebrow">A LITTLE SOMETHING FOR YOU</p>
@@ -1173,21 +1140,15 @@ function Cart() {
             </div>
             <div>
               <span>Delivery</span>
-              <span>Demo only</span>
+              <span>Calculated at checkout</span>
             </div>
             <div className="total">
               <span>Total</span>
               <strong>{money(cart.total)}</strong>
             </div>
             <ErrorBox error={error} />
-            <button className="wide" disabled={busy} onClick={checkout}>
-              {busy ? "Saving order…" : "Place demo order"}{" "}
-              <ArrowRight size={16} />
-            </button>
-            <p className="metadata">
-              No payment is collected. Prices and inventory are checked by the
-              server when you place your order.
-            </p>
+            <Link className="button wide" to="/checkout">Continue to checkout <ArrowRight size={16} /></Link>
+            <p className="metadata">Secure payment powered by Stripe. Review delivery and your exact total at checkout.</p>
           </aside>
         </div>
       ) : (
@@ -1384,7 +1345,7 @@ function Account() {
             <tbody>
               {orders.map((o) => (
                 <tr key={o.id}>
-                  <td>{o.id.slice(0, 8)}</td>
+                  <td>{o.order_number ? <Link to={`/orders/${o.id}`}>{o.order_number}</Link> : o.id.slice(0, 8)}</td>
                   <td>{o.created_at.slice(0, 10)}</td>
                   <td>{money(o.total)}</td>
                   <td>{o.status}</td>
@@ -1430,7 +1391,7 @@ function Privacy() {
       </div>
         <h2>What we keep</h2>
         <p>
-          Your bag, wishlist and demo orders are stored to provide these
+          Your bag, wishlist and orders are stored to provide these
           account features. Quiz answers are saved to your scent profile only
           while personalization is on; otherwise they are used for that quiz
           response only. Account email and password hashes stay separate from
@@ -1611,6 +1572,11 @@ export default function App() {
             <Route path="quiz" element={<SessionBoundary><Quiz /></SessionBoundary>} />
             <Route path="wishlist" element={<SessionBoundary><Wishlist /></SessionBoundary>} />
             <Route path="cart" element={<SessionBoundary><Cart /></SessionBoundary>} />
+            <Route path="checkout" element={<SessionBoundary><CheckoutPage /></SessionBoundary>} />
+            <Route path="checkout/success" element={<SessionBoundary><CheckoutSuccess /></SessionBoundary>} />
+            <Route path="checkout/cancelled" element={<SessionBoundary><CheckoutCancelled /></SessionBoundary>} />
+            <Route path="checkout/cancel" element={<SessionBoundary><CheckoutCancelled /></SessionBoundary>} />
+            <Route path="orders/:orderId" element={<SessionBoundary><OrderDetail /></SessionBoundary>} />
             <Route path="account" element={<SessionBoundary><Account /></SessionBoundary>} />
             <Route path="privacy" element={<SessionBoundary><Privacy /></SessionBoundary>} />
             <Route path="intelligence" element={<Intelligence />} />
