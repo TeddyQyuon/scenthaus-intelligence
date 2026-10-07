@@ -1,0 +1,10 @@
+{
+  "source": "7694dcda1720193f9f4195318b57af95d5dac892",
+  "training_source": "2e19249ec2030c4b19a1c73336899e1413b78695",
+  "training_run": 37411420198,
+  "training_artifact": 11389448639,
+  "prior_native_python_tests": 65,
+  "model_version": "20261006T040911-15589597-827c10a1",
+  "data_hash": "15589597379a864309b5db3ce8e995894c7fa02af58b23848297989141c8faca",
+  "fixture": "fresh native PostgreSQL with simulated records"
+}

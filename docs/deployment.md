@@ -11,7 +11,7 @@ Add the variables below to the matching Vercel environment. Do not copy Producti
 | Variable | Value |
 | --- | --- |
 | `DATABASE_URL` | PostgreSQL URL for API requests. Use a TLS URL and a provider's pooled endpoint where supported. |
-| `DATABASE_URL_UNPOOLED` | Direct PostgreSQL URL for the build's session advisory lock. |
+| `DATABASE_URL_UNPOOLED` | Direct PostgreSQL URL for the build's transaction-scoped advisory lock. |
 | `ENVIRONMENT` | `production` |
 | `SECRET_KEY` | Unique random value of at least 32 characters. |
 | `ADMIN_EMAIL` | Initial admin email for the empty-database seed. |
@@ -23,7 +23,7 @@ The frontend uses same-origin `/api` requests. No `VITE_API_URL` is needed. Loca
 
 ## Build and initialization
 
-The API service build command is `python -m app.vercel_build`. It checks the required database variables, creates a temporary build-only Python environment, installs CPU PyTorch and training dependencies, then runs `app.vercel_init`. The initializer takes a PostgreSQL advisory lock, applies Alembic migrations, seeds only an empty database with the 150 real-product references and simulated records, validates the catalogue, trains a versioned bundle when one is not current, and downloads the pinned ONNX query encoder.
+The API service build command is `python -m app.vercel_build`. It checks the required database variables, creates a temporary build-only Python environment, installs CPU PyTorch and training dependencies, then runs `app.vercel_init`. The initializer takes a transaction-scoped PostgreSQL advisory lock on the direct connection, applies Alembic migrations, seeds only an empty database with the 150 real-product references and simulated records, validates the catalogue, trains a versioned bundle when one is not current, and downloads the pinned ONNX query encoder.
 
 The API build then copies only the inference modules and YAML configs into the API service root. The function includes those files and `backend/artifacts/`; its request path uses NumPy and ONNX Runtime and never trains or writes model files. Generated weights and simulated training records are not committed.
 
@@ -42,9 +42,13 @@ After setting environment values and deploying, verify:
 
 Do not change the public demo alias until the new release passes these checks. Current account and deployment observations are in [`reports/deployment.md`](../reports/deployment.md); automated code checks are tracked in [`reports/verification.md`](../reports/verification.md).
 
-## Current account step
+## Current release status
 
-The source and Vercel routing are published on `complete-phases-real-catalog`, but the new release is not live. The Preview for documentation commit `2120a66` built the frontend and then failed with `Set DATABASE_URL before building the SCENTHAUS API`. The project variables are Production-only and its Production database serves the older invented catalogue. The owner needs to create/configure the dedicated Preview and Production databases and environment variables before a deployment can pass initialization. The release guard prevents accidental catalog replacement.
+Separate Neon databases are connected: `scenthaus-reference-preview` is Preview-only and `scenthaus-reference-production` is Production-only. The older catalogue database remains connected under the `LEGACY` variable prefix and has not been overwritten. App secrets are stored in the matching Vercel environments and are not committed.
+
+The production source branch is `complete-phases-real-catalog`. Automatic production-domain assignment is disabled while builds are staged; manually promote only a verified Production deployment. A Preview must never be promoted directly because it uses the Preview database.
+
+The first clean Preview completed seed/training but exposed an idle-lock connection shutdown at cleanup. Source `7694dcda` holds its direct build connection in a transaction with `pg_advisory_xact_lock` and uses `SET LOCAL idle_in_transaction_session_timeout = '0'`. The override lasts only for this transaction; the connection keeps Neon active during CPU-only training and releases the lock on either successful or failed builds. The runtime dependency list also explicitly includes PyJWT; the isolated packaged-API check verifies startup and JWT auth without the training libraries. Preview and Production source `7694dcda` passed hosted model startup, catalogue, search and guest shopping checks and the public alias was promoted. Source `618a1d1` additionally replaces per-snapshot maintenance queries with a bounded bulk reconciliation. Its nine native tests, four browser journeys and runtime-only API checks passed; the promoted Production Cron returned 200 in 1.83 seconds. The updated portfolio includes its live link and storefront cover. See [`reports/deployment.md`](../reports/deployment.md).
 
 ## References
 
