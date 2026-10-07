@@ -397,3 +397,24 @@ def test_concurrent_pay_requests_share_one_order(payments):
     with payments.db() as db:
         assert db.scalar(select(func.count()).select_from(Order)) == 1
         assert db.get(Variant, 1).stock == 10
+
+
+def test_simultaneous_distinct_paid_events_have_one_purchase_effect(payments):
+    from concurrent.futures import ThreadPoolExecutor
+    from app.models import Event, User
+    result, _ = create_order(payments)
+    with payments.db() as db:
+        order = db.get(Order, result['order_id'])
+        db.get(User, order.user_id).consent = True
+        db.commit()
+    events = [session_event(payments, result['order_id']) for _ in range(2)]
+    if os.environ.get('NATIVE_POSTGRES_TESTS') == '1':
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            responses = list(pool.map(lambda event: send_event(payments.client, event), events))
+    else:
+        responses = [send_event(payments.client, event) for event in events]
+    assert all(response.status_code == 200 for response in responses)
+    with payments.db() as db:
+        assert db.scalar(select(func.count()).select_from(Event).where(Event.event_type == 'purchase')) == 1
+        assert db.get(Variant, 1).stock == 10
+        assert db.scalar(select(func.count()).select_from(Order)) == 1
