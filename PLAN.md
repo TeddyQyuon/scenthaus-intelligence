@@ -172,3 +172,11 @@ admin/forecast flows were checked in isolated native CI. The portfolio
 card and case study are live with the new cover and demo link. Detailed
 scope and evidence are in `reports/deployment.md` and
 `reports/release-2026-10-06/`.
+
+## Storefront follow-up — 2026-10-07
+- User requested faster entry, size selection in Quick add, and shopping UX improvements informed by established perfume retailers.
+- Removed the session gate from public pages; bag/account/privacy/quiz/admin wait for their session. Products load independently of optional recommendations, with reserved loading cards and recoverable errors.
+- Quick add uses a native modal dialog with size-specific prices, disabled sold-out variants, guarded submission, and bag confirmation. Existing bag quantities are read after session initialization.
+- Mobile header/search and card density refreshed within the existing visual system. Same hero re-encoded as WebP (2,117,302 → 162,170 bytes).
+- Added browser regressions for a held session, failed recommendation, reconnect, size selection, sold-out state, focus return, mobile width, and a pending existing bag.
+- Production build and six local jsdom regression tests pass. Four new browser journeys are present but have not run. Publishing was rejected by automatic approval review for lack of explicit publication authorization; no push or deployment completed. Details: `reports/storefront-2026-10-07.md`.

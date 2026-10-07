@@ -129,3 +129,5 @@ Native CI passed all 65 Python tests with zero skips and Ruff after actual model
 - [Feature matrix](docs/feature-matrix.md)
 - [Portfolio entry](docs/portfolio-entry.md)
 - [Vercel deployment](docs/deployment.md)
+
+Storefront update (2026-10-07): public pages render while the guest session connects. Product listings do not wait for recommendations. Quick add lets shoppers choose an available bottle size with its simulated SGD price, then view their bag or continue browsing. The mobile header exposes collection search, and the homepage hero uses an optimized WebP asset. Session and size-picker regressions are in `frontend/e2e/storefront.spec.js`.
