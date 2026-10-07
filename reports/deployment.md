@@ -1,6 +1,6 @@
 # Vercel release evidence
 
-Checked 2026-10-07. The 35-house reference-catalogue shop and updated portfolio are live. Preview and Production source `7694dcda` passed hosted verification and the Production alias was promoted. The maintenance follow-up is recorded below.
+Current release: Stripe runtime source `2398d7504b3a014105aca83f22655153ca8c02a8` is Ready and promoted. Full native CI passed 119 Python tests, 15 frontend tests and 12 browser journeys. Actual hosted test payment, signed confirmation, decline, cancellation and event retries passed. Portfolio source `9b0001c4` is Ready and publicly verified. See [complete Stripe release evidence](stripe-verification.md). The earlier catalogue and maintenance releases below are historical.
 
 | Item | Evidence |
 | --- | --- |
