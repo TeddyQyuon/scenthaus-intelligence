@@ -21,3 +21,4 @@ PyJWT==2.15.1
 pyotp==2.9.0
 cryptography==46.0.3
 PyYAML==6.0.3
+stripe==16.0.0
