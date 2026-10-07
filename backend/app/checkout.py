@@ -257,7 +257,7 @@ def create_checkout(body: CheckoutRequest, user=Depends(user_required), db=Depen
         session = stripe_service.create_session(params, "scenthaus-order-" + order.id)
     except stripe.InvalidRequestError:
         db.scalar(select(User).where(User.id == user.id).with_for_update())
-        order = db.scalar(select(Order).where(Order.id == order.id).with_for_update())
+        order = db.scalar(select(Order).where(Order.id == order.id).with_for_update().execution_options(populate_existing=True))
         # A definitive rejected request did not create a charge or session.
         if not order.stripe_session_id:
             release_inventory(order, db)
@@ -268,7 +268,7 @@ def create_checkout(body: CheckoutRequest, user=Depends(user_required), db=Depen
         # and reservation: retrying reuses the exact Stripe idempotency key.
         raise HTTPException(503, "We could not connect to secure payment. Your bag is saved; please retry.") from None
     db.scalar(select(User).where(User.id == user.id).with_for_update())
-    order = db.scalar(select(Order).where(Order.id == order.id).with_for_update())
+    order = db.scalar(select(Order).where(Order.id == order.id).with_for_update().execution_options(populate_existing=True))
     if order.stripe_session_id and order.stripe_session_id != session.id:
         raise HTTPException(409, "Your checkout is already open. Please return to it.")
     order.stripe_session_id = session.id
@@ -306,7 +306,7 @@ def reconcile_order(order, db):
     except stripe.StripeError:
         return  # Uncertain payment state never releases stock or confirms payment.
     db.scalar(select(User).where(User.id == owner_id).with_for_update())
-    order = db.scalar(select(Order).where(Order.id == identifier).with_for_update())
+    order = db.scalar(select(Order).where(Order.id == identifier).with_for_update().execution_options(populate_existing=True))
     if session:
         order.stripe_session_id = session.id
         if session.url:
@@ -347,7 +347,7 @@ def cancel_checkout(order_id: str, user=Depends(user_required), db=Depends(get_d
     except stripe.StripeError:
         raise HTTPException(503, "We could not confirm cancellation. Please try again shortly.") from None
     db.scalar(select(User).where(User.id == user.id).with_for_update())
-    order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
+    order = db.scalar(select(Order).where(Order.id == order_id).with_for_update().execution_options(populate_existing=True))
     # Cancellation never marks paid; success still requires a verified webhook.
     if session.status == "expired" and session.payment_status == "unpaid":
         release_inventory(order, db)
@@ -372,7 +372,7 @@ def apply_event(event, db):
     if bool(event.get("livemode")) != (order.payment_mode == "live"):
         raise HTTPException(400, "Payment event mode does not match the order.")
     db.scalar(select(User).where(User.id == order.user_id).with_for_update())
-    order = db.scalar(select(Order).where(Order.id == order.id).with_for_update())
+    order = db.scalar(select(Order).where(Order.id == order.id).with_for_update().execution_options(populate_existing=True))
     if db.get(StripeWebhookEvent, event["id"]):
         return
     if kind.startswith("checkout.session."):
