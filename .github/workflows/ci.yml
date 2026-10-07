@@ -52,7 +52,7 @@ jobs:
         working-directory: frontend
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
-      - run: npm test && npm run build
+      - run: npm run test:unit && npm test && npm run build
         working-directory: frontend
       - uses: actions/upload-artifact@v4
         if: always()
