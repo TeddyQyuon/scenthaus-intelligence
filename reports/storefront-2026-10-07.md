@@ -1,5 +1,6 @@
 # SCENTHAUS storefront update — 2026-10-07
 
+**Completed release update:** The authorized combined storefront source `588f9d88` was deployed and verified publicly; follow-up CI `37587286866` passed 84 Python, seven frontend and ten browser tests. The later Stripe release preserves those changes and passed 119 Python, 15 frontend and 12 browser tests, including mobile and desktop checkout. Public storefront, ml/quantity Quick add and portfolio were verified. Preparation/pending/approval notes below are historical; current evidence is in [stripe-verification.md](stripe-verification.md).
 Prepared locally; not pushed or deployed. Production remains on the preceding release.
 
 ## Why the opening screen lasted
