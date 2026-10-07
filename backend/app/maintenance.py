@@ -1,7 +1,7 @@
 from datetime import timedelta
 from sqlalchemy import delete, text
 from .database import SessionLocal
-from .models import Event, RecommendationRequest, Session, now
+from .models import Event, RecommendationRequest, SecurityEvent, Session, now
 from .config import settings
 
 
@@ -11,6 +11,7 @@ def maintain():
         for model in [Event, RecommendationRequest]:
             db.execute(delete(model).where(model.created_at < cutoff))
         db.execute(delete(Session).where(Session.expires_at < now()))
+        db.execute(delete(SecurityEvent).where(SecurityEvent.created_at < now() - timedelta(days=90)))
         # Aggregate sales once and reconcile every due snapshot in one statement.
         # Daily buckets preserve each snapshot's inclusive/exclusive seven-day window,
         # including snapshots whose start date is not a Monday.

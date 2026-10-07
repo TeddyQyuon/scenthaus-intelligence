@@ -80,6 +80,12 @@ class User(Base):
     simulated = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=now, nullable=False)
     quiz_profile = Column(JSON)
+    totp_secret = Column(String(512))
+    totp_last_counter = Column(Integer)
+    recovery_code_hashes = Column(JSON, default=list, nullable=False)
+    pending_totp_secret = Column(String(512))
+    pending_totp_expires_at = Column(DateTime)
+    pending_totp_session = Column(String(64))
 
 
 class StockWeek(Base):
@@ -96,6 +102,26 @@ class Session(Base):
         String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     expires_at = Column(DateTime, nullable=False)
+    public_id = Column(String(36), default=uid, nullable=False)
+    created_at = Column(DateTime)
+    last_seen_at = Column(DateTime)
+    ip_address = Column(String(45))
+    user_agent = Column(String(512))
+    location = Column(String(200))
+    __table_args__ = (UniqueConstraint("public_id", name="uq_sessions_public_id"),)
+
+
+class SecurityEvent(Base):
+    __tablename__ = "security_events"
+    id = Column(String(36), primary_key=True, default=uid)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    account_hash = Column(String(64), index=True)
+    kind = Column(String(40), nullable=False)
+    success = Column(Boolean, nullable=False)
+    created_at = Column(DateTime, default=now, nullable=False, index=True)
+    ip_address = Column(String(45), index=True)
+    user_agent = Column(String(512))
+    location = Column(String(200))
 
 
 class Wishlist(Base):

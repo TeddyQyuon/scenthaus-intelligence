@@ -30,6 +30,7 @@ from .catalog import ACCORDS
 from .ml.experiments import ab_simulate
 from .ml.metrics import metrics as forecast_metrics
 from .analytics import overview, segments, date_range
+from .account_security import router as security_router, check_rate_limit, record_event, verify_factor
 
 from contextlib import asynccontextmanager
 
@@ -53,6 +54,7 @@ app = FastAPI(
     docs_url="/docs" if settings.environment != "production" else None,
     redoc_url=None,
 )
+app.include_router(security_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.origins,
@@ -69,7 +71,8 @@ async def safeguards(request, call_next):
     start = time.perf_counter()
     key = (
         request.client.host if request.client else "unknown",
-        request.url.path.startswith("/auth/"),
+        request.url.path.startswith("/auth/")
+        and request.method in {"POST", "PUT", "DELETE"},
     )
     if len(requests) > 10000:
         requests.clear()
@@ -462,7 +465,7 @@ def auth_session(request: Request, response: Response, db=Depends(get_db)):
         user = User()
         db.add(user)
         db.commit()
-        token = issue(user, response, db)
+        token = issue(user, response, db, request)
     else:
         token = csrf(request.cookies["scenthaus_session"])
     return identity(user, token)
@@ -482,9 +485,10 @@ def register(
         raise HTTPException(409, "Email already registered")
     user.email = body.email
     user.password_hash = hasher.hash(body.password)
+    record_event(db, request, "account_created", True, user)
     db.delete(db.get(Session, digest(request.cookies["scenthaus_session"])))
     db.commit()
-    return identity(user, issue(user, response, db))
+    return identity(user, issue(user, response, db, request))
 
 
 @app.post("/auth/login")
@@ -495,13 +499,24 @@ def login(
     user=Depends(user_required),
     db=Depends(get_db),
 ):
-    account = db.scalar(select(User).where(User.email == body.email))
+    check_rate_limit(db, request, body.email)
+    account = db.scalar(select(User).where(User.email == body.email).with_for_update()
+                        .execution_options(populate_existing=True))
     try:
         valid = account and hasher.verify(account.password_hash, body.password)
     except Exception:
         valid = False
     if not valid:
+        record_event(db, request, "login", False, account, body.email)
+        db.commit()
         raise HTTPException(401, "Incorrect email or password")
+    if account.totp_secret:
+        if not body.otp_code:
+            return {"mfa_required": True}
+        if not verify_factor(account, body.otp_code):
+            record_event(db, request, "login", False, account, body.email)
+            db.commit()
+            raise HTTPException(401, "Invalid verification code. Use a fresh authenticator code or an unused recovery code.")
     if not user.email and user.id != account.id:
         for old in db.scalars(
             select(CartItem).where(CartItem.user_id == user.id)
@@ -531,8 +546,9 @@ def login(
             else:
                 old.user_id = account.id
     db.delete(db.get(Session, digest(request.cookies["scenthaus_session"])))
+    record_event(db, request, "login", True, account)
     db.commit()
-    return identity(account, issue(account, response, db))
+    return identity(account, issue(account, response, db, request))
 
 
 @app.post("/auth/logout")
@@ -543,10 +559,12 @@ def logout(
     db=Depends(get_db),
 ):
     db.delete(db.get(Session, digest(request.cookies["scenthaus_session"])))
+    if user.email:
+        record_event(db, request, "logout", True, user)
     guest = User()
     db.add(guest)
     db.commit()
-    return identity(guest, issue(guest, response, db))
+    return identity(guest, issue(guest, response, db, request))
 
 
 @app.put("/privacy/consent")
@@ -573,6 +591,15 @@ def personal_export(user=Depends(user_required), db=Depends(get_db)):
         ],
         "quiz": profile.answers if profile else None,
         "orders": order_list(user, db),
+        "security_history": [
+            {"kind": event.kind, "success": event.success,
+             "created_at": event.created_at.isoformat() + "Z",
+             "ip_address": event.ip_address, "location": event.location,
+             "user_agent": event.user_agent}
+            for event in db.scalars(select(SecurityEvent).where(
+                SecurityEvent.user_id == user.id,
+                SecurityEvent.created_at >= now() - timedelta(days=90)))
+        ],
         "events": [
             {
                 "product_id": e.product_id,
@@ -696,6 +723,7 @@ def cart(user=Depends(user_required), db=Depends(get_db)):
 
 @app.put("/cart")
 def update_cart(body: CartUpdate, user=Depends(user_required), db=Depends(get_db)):
+    db.scalar(select(User).where(User.id == user.id).with_for_update())
     v = db.get(Variant, body.variant_id)
     if not v or db.get(Product, v.product_id).hidden:
         raise HTTPException(404, "Product not found")
@@ -713,8 +741,21 @@ def update_cart(body: CartUpdate, user=Depends(user_required), db=Depends(get_db
     return cart(user, db)
 
 
+@app.post("/cart/add")
+def quick_add_cart(body: CartUpdate, user=Depends(user_required), db=Depends(get_db)):
+    # Serialize additive and replacement bag writes for this user across devices.
+    db.scalar(select(User).where(User.id == user.id).with_for_update())
+    existing = db.scalar(select(CartItem).where(
+        CartItem.user_id == user.id, CartItem.variant_id == body.variant_id))
+    quantity = body.quantity + (existing.quantity if existing else 0)
+    if quantity > 10:
+        raise HTTPException(409, "You can add up to 10 bottles of a size to your bag.")
+    return update_cart(CartUpdate(variant_id=body.variant_id, quantity=quantity), user, db)
+
+
 @app.delete("/cart/{vid}")
 def remove_cart(vid: int, user=Depends(user_required), db=Depends(get_db)):
+    db.scalar(select(User).where(User.id == user.id).with_for_update())
     db.execute(
         delete(CartItem).where(CartItem.user_id == user.id, CartItem.variant_id == vid)
     )

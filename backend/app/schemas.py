@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, field_validator
 class Credentials(BaseModel):
     email: str = Field(min_length=5, max_length=254)
     password: str = Field(min_length=10, max_length=128)
+    otp_code: str | None = Field(default=None, max_length=40)
 
     @field_validator("email")
     @classmethod
