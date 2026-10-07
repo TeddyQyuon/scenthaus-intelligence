@@ -2,7 +2,7 @@
 
 [Live fragrance shop](https://scenthaus-intelligence.vercel.app/) · [Portfolio case study](https://teddy-qyuon-portfolio.vercel.app/projects/scenthaus-intelligence) · [Source repository](https://github.com/TeddyQyuon/scenthaus-intelligence) · [Deployment status](reports/deployment.md)
 
-> The live shop contains all 35 requested fragrance houses, 150 product references and 297 size variants, with searchable brand navigation and quick bag actions. Preview and Production use separate Neon databases. Prices, stock and checkout are simulated. See [release evidence](reports/deployment.md).
+> The live shop contains all 35 requested fragrance houses, 150 product references and 297 size variants, with searchable brand navigation and quick bag actions. Preview and Production use separate Neon databases. Prices and stock are seeded portfolio data. Checkout is integrated with Stripe in test mode. See [release evidence](reports/deployment.md).
 
 SCENTHAUS Intelligence — a fragrance storefront built with React and Python, featuring personalized recommendations, demand forecasting and inventory analytics. Order history is simulated; reported results demonstrate the pipeline and methods, not real customer performance.
 
@@ -10,7 +10,7 @@ SCENTHAUS Intelligence — a fragrance storefront built with React and Python, f
 
 The reference catalogue contains **150 real fragrances across 35 brands**, with product-specific photographs and links to manufacturer or retailer sources. Source links identify where each reference came from; they do not verify supplier authenticity or current availability.
 
-Prices, stock, launch dates, users, browsing events and orders are simulated. Checkout creates a demo order and updates demo inventory; it never takes payment, sells, ships or fulfils a fragrance. Model results use generated behaviour, not real customer or commercial performance.
+Prices, stock, launch dates, users, browsing events and orders are simulated. Checkout uses server-priced Stripe-hosted payment sessions and signature-verified webhooks. The deployed account is in test mode: it takes no real money and does not dispatch fragrance. Model results use generated behaviour, not real customer or commercial performance.
 
 ## Architecture
 
@@ -31,7 +31,7 @@ The browser uses one origin for the storefront and `/api`. PostgreSQL owns accou
 - Browse a searchable directory of all 35 fragrance houses. Brand links open the filtered collection directly, including on mobile.
 - Browse and filter real fragrance references by brand, notes, size, budget, season and stock annotation in a beauty-retail storefront, with quick add-to-bag actions.
 - Use hybrid recommendations, an accord-based quiz, similar-scent suggestions and natural-language search with example queries.
-- Save a wishlist and bag to the account; place a simulated order without payment.
+- Save a wishlist and bag to the account; review contact/delivery details and pay through Stripe-hosted Checkout in test mode.
 - Review demand forecasts, model comparisons, interval bands, inventory signals, model version and method notes in the protected admin area.
 - Manage default-off personalization consent, export personal data and withdraw tracking consent.
 
@@ -113,9 +113,9 @@ Use a separate empty database for Preview and Production; never expose productio
 
 ## Privacy and model limits
 
-Personalization is off until a shopper opts in. Without consent, quiz answers are used for that request only and are not saved. Consent withdrawal deletes tracked events, quiz profile and recommendation references; wishlist, bag and demo orders remain available for account functionality. Training reads only consented pseudonymous interactions. Previously trained aggregate contributions are removed when the next model build uses the updated consented dataset.
+Personalization is off until a shopper opts in. Without consent, quiz answers are used for that request only and are not saved. Consent withdrawal deletes tracked events, quiz profile and recommendation references; wishlist, bag and orders remain available for account functionality. Training reads only consented pseudonymous interactions. Previously trained aggregate contributions are removed when the next model build uses the updated consented dataset.
 
-The system is a portfolio demonstration, not a real fragrance retailer. It does not verify stock or authenticity, assess product suitability, process real payments, or make purchase and replenishment decisions without human review. See [governance notes](docs/governance.md) and [deployment evidence](reports/deployment.md).
+The system is a portfolio demonstration, not a real fragrance retailer. It does not verify stock or authenticity, assess product suitability, enable live payments without merchant configuration, or make purchase and replenishment decisions without human review. See [governance notes](docs/governance.md) and [deployment evidence](reports/deployment.md).
 
 ## Checks
 
@@ -133,3 +133,8 @@ Native CI passed all 65 Python tests with zero skips and Ruff after actual model
 Storefront update (2026-10-07): public pages render while the guest session connects. Product listings do not wait for recommendations. Quick add lets shoppers choose an available bottle size with its simulated SGD price, then view their bag or continue browsing. The mobile header exposes collection search, and the homepage hero uses an optimized WebP asset. Session and size-picker regressions are in `frontend/e2e/storefront.spec.js`.
 
 The release also preserves the deployed account-security extension: authenticator-based two-factor sign-in, single-use recovery codes, password changes, device sessions, revocation and a 90-day security history. Bag additions use a serialized server-side increment so concurrent additions do not overwrite existing quantities. Quick add checks current availability and lets shoppers choose both bottle size and quantity.
+
+
+## Secure Stripe checkout
+
+See [Stripe configuration and operations](docs/stripe-checkout.md) for required environment variables, webhook events, authoritative pricing, stock reservation, idempotency, test cards and merchant launch limitations. `/checkout` is the storefront checkout; `/api/stripe/webhook` receives signed payment confirmations. The legacy demo payment endpoint is retired.

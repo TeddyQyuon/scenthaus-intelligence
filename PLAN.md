@@ -186,3 +186,7 @@ scope and evidence are in `reports/deployment.md` and
 - GitHub branch source lacked the account-security extension present in deployed Production `dpl_KeMyxsqHa3z1FZgWGD62nxg8sPZy`. Recovered its account source, migration 0003, tests and dependencies through Vercel Source; copied source was checked against deployment SHA-1 file identifiers (the viewer omits the final newline). No database reset or credential change.
 - Combined faster public rendering with the existing size/quantity picker, atomic additive bag endpoint and account security. Fixed consented product-view tracking to wait for session readiness.
 - Production and full native CI verification are pending; the public alias remains on the prior deployment until the combined release passes.
+
+## Authorized continuation: Stripe checkout
+
+The user authorized completing, committing/pushing and deploying this integration, and updating the portfolio. Earlier prepared-release or approval-blocked notes above are historical. The storefront release and first portfolio update have been pushed and deployed. Stripe test-mode implementation, deployment and hosted verification are in progress; configuration and merchant limits are in `docs/stripe-checkout.md`.
