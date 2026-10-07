@@ -16,17 +16,18 @@ jobs:
       ADMIN_PASSWORD: ci-only-strong-password-12345
       ADMIN_EMAIL: admin@scenthaus.demo
       SECRET_KEY: ci-only-simulated-fixture-key-at-least-32-characters
+      CRON_SECRET: ci-only-maintenance-bearer-key-for-runtime-tests
       PYTHONPATH: backend:.
       HF_HOME: data/hf-cache
       OMP_NUM_THREADS: '2'
       OPENBLAS_NUM_THREADS: '2'
       ALLOWED_ORIGINS: http://127.0.0.1:5173,http://localhost:5173
       TRAINED_SOURCE: 2e19249ec2030c4b19a1c73336899e1413b78695
-      VERIFIED_SOURCE: 7694dcda1720193f9f4195318b57af95d5dac892
+      VERIFIED_SOURCE: 618a1d1a170cc4183ab9ff59751dbde523f5a421
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 7694dcda1720193f9f4195318b57af95d5dac892
+          ref: 618a1d1a170cc4183ab9ff59751dbde523f5a421
           fetch-depth: 0
           persist-credentials: false
       - name: Require scoped runtime fixes and unchanged training inputs
@@ -41,7 +42,7 @@ jobs:
           assert runtime == baseline, 'Only the missing PyJWT runtime dependency may be added'
           assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip() == os.environ['VERIFIED_SOURCE']
           changed = subprocess.check_output(['git', 'diff', '--name-only', os.environ['TRAINED_SOURCE'], 'HEAD'], text=True).splitlines()
-          assert set(changed) == {'backend/pyproject.toml', 'scripts/verify_vercel_runtime.py', 'backend/app/vercel_init.py', 'backend/tests/test_vercel.py', 'PLAN.md', 'README.md', 'docs/deployment.md', 'docs/feature-matrix.md', 'docs/model_cards/forecaster.md', 'docs/model_cards/recommender.md', 'docs/portfolio-entry.md', 'frontend/e2e/journeys.spec.js', 'frontend/src/Admin.jsx', 'frontend/src/App.jsx', 'frontend/src/brands.js', 'frontend/src/styles.css', 'ml/reports/forecast.md', 'ml/reports/operations.md', 'ml/reports/recommender.md', 'reports/deployment.md', 'reports/historical/README.md', 'reports/historical/browser-gut-check.txt', 'reports/historical/browser-tests.txt', 'reports/historical/build.txt', 'reports/historical/latency.json', 'reports/historical/production-api-smoke.json', 'reports/historical/pytest.txt', 'reports/verification.md'}, changed
+          assert set(changed) == {'backend/app/maintenance.py', 'backend/tests/test_tracking.py', 'backend/pyproject.toml', 'scripts/verify_vercel_runtime.py', 'backend/app/vercel_init.py', 'backend/tests/test_vercel.py', 'PLAN.md', 'README.md', 'docs/deployment.md', 'docs/feature-matrix.md', 'docs/model_cards/forecaster.md', 'docs/model_cards/recommender.md', 'docs/portfolio-entry.md', 'frontend/e2e/journeys.spec.js', 'frontend/src/Admin.jsx', 'frontend/src/App.jsx', 'frontend/src/brands.js', 'frontend/src/styles.css', 'ml/reports/forecast.md', 'ml/reports/operations.md', 'ml/reports/recommender.md', 'reports/deployment.md', 'reports/historical/README.md', 'reports/historical/browser-gut-check.txt', 'reports/historical/browser-tests.txt', 'reports/historical/build.txt', 'reports/historical/latency.json', 'reports/historical/production-api-smoke.json', 'reports/historical/pytest.txt', 'reports/verification.md'}, changed
           print('The scoped build-lock, runtime dependency and verification changes are allowed; training code and training dependencies are unchanged.')
           PY
       - uses: actions/setup-python@v5
@@ -96,7 +97,7 @@ jobs:
           PY
       - name: Verify the native PostgreSQL build lock and runtime guards
         run: |
-          pytest backend/tests/test_vercel.py -q --junitxml=reports/build-lock-tests.xml
+          pytest backend/tests/test_vercel.py backend/tests/test_tracking.py -q --junitxml=reports/build-lock-tests.xml
           ruff check .
       - run: npm ci
         working-directory: frontend
