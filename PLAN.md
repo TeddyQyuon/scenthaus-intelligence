@@ -180,3 +180,9 @@ scope and evidence are in `reports/deployment.md` and
 - Mobile header/search and card density refreshed within the existing visual system. Same hero re-encoded as WebP (2,117,302 → 162,170 bytes).
 - Added browser regressions for a held session, failed recommendation, reconnect, size selection, sold-out state, focus return, mobile width, and a pending existing bag.
 - Production build and six local jsdom regression tests pass. Four new browser journeys are present but have not run. Publishing was rejected by automatic approval review for lack of explicit publication authorization; no push or deployment completed. Details: `reports/storefront-2026-10-07.md`.
+
+## 2026-10-07 publishing continuation
+- The user authorized cloud-browser publishing, completion and a portfolio update.
+- GitHub branch source lacked the account-security extension present in deployed Production `dpl_KeMyxsqHa3z1FZgWGD62nxg8sPZy`. Recovered its account source, migration 0003, tests and dependencies through Vercel Source; copied source was checked against deployment SHA-1 file identifiers (the viewer omits the final newline). No database reset or credential change.
+- Combined faster public rendering with the existing size/quantity picker, atomic additive bag endpoint and account security. Fixed consented product-view tracking to wait for session readiness.
+- Production and full native CI verification are pending; the public alias remains on the prior deployment until the combined release passes.
