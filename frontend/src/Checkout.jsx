@@ -102,11 +102,12 @@ export function CheckoutPage() {
       const { data } = await api.get("/checkout/quote");
       setQuote(data);
       if (data.pending_order) setDelivery(data.pending_order.delivery);
+      else { resetCheckoutKey(); setKey(checkoutKey()); }
     } catch (e) { setError(message(e)); }
     finally { setLoading(false); }
   }
   useEffect(() => { let active = true; api.get("/checkout/quote").then(({ data }) => {
-    if (active) { setQuote(data); if (data.pending_order) setDelivery(data.pending_order.delivery); }
+    if (active) { setQuote(data); if (data.pending_order) setDelivery(data.pending_order.delivery); else { resetCheckoutKey(); setKey(checkoutKey()); } }
   }).catch((e) => { if (active) setError(message(e)); }).finally(() => { if (active) setLoading(false); });
   return () => { active = false; }; }, []);
 
