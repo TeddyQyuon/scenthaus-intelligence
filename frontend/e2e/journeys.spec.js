@@ -119,6 +119,7 @@ test("real catalog, discovery, consent, wishlist, quiz and demo order", async ({
     .getByRole("button", { name: new RegExp(`${variant.size_ml}ml`) })
     .click();
   await page.getByRole("button", { name: "Add to bag" }).click();
+  await expect(page.getByRole("status")).toHaveText("Added to your bag");
   await page.goto("/cart");
   await expect(page.locator(".cart-item")).toHaveCount(1);
   await page.reload();
