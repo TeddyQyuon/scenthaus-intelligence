@@ -28,8 +28,9 @@ import {
   ShieldCheck,
   ChevronDown,
 } from "lucide-react";
-import { ShopProvider, useShop } from "./context";
+import { ShopProvider, SessionBoundary, useShop } from "./context";
 import { api, money, message, download } from "./api";
+import QuickAdd from "./QuickAdd";
 import { BRAND_HOUSES } from "./brands";
 const Admin = lazy(() => import("./Admin"));
 function Scroll() {
@@ -53,10 +54,11 @@ export function ErrorBox({ error }) {
   ) : null;
 }
 export function ProductCard({ product: p, rec }) {
-  const { wishlist, wish, add, track, notify } = useShop(),
+  const { wishlist, wish, track, notify } = useShop(),
     ref = useRef(null);
   const [why, setWhy] = useState(false),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [quickOpen, setQuickOpen] = useState(false);
   const saved = wishlist.some((w) => w.id === p.id),
     variant = p.variants.find((v) => v.stock > 0);
   useEffect(() => {
@@ -97,11 +99,15 @@ export function ProductCard({ product: p, rec }) {
             src={p.image}
             alt={`${p.name} by ${p.brand} — product photograph`}
             loading="lazy"
+            decoding="async"
+            width="400"
+            height="400"
           />
         </Link>
         <button
           className={`icon heart ${saved ? "saved" : ""}`}
           aria-label={`${saved ? "Remove" : "Save"} ${p.name}`}
+          disabled={busy}
           onClick={() => action(() => wish(p))}
         >
           <Heart size={19} fill={saved ? "currentColor" : "none"} />
@@ -117,14 +123,17 @@ export function ProductCard({ product: p, rec }) {
         {p.category} · {p.concentration} · {Object.values(p.notes).flat().slice(0, 3).join(", ")}
       </p>
       <p className="price">From {money(p.price_from)}</p>
+      <p className="card-sizes">{p.variants.map((v) => `${v.size_ml} ml`).join(" / ")}</p>
       <button
         className="quick-add"
-        disabled={!variant || busy}
-        aria-label={`Add ${p.name} to bag`}
-        onClick={() => action(() => add(variant))}
+        disabled={!variant}
+        aria-label={`Quick add ${p.name}`}
+        aria-haspopup="dialog"
+        onClick={() => setQuickOpen(true)}
       >
-        <Plus size={15} /> Add to bag
+        <Plus size={15} /> {variant ? "Quick add" : "Sold out"}
       </button>
+      {quickOpen && <QuickAdd product={p} onClose={() => setQuickOpen(false)} />}
       {!!p.reason_tags?.length && (
         <div className="reason-chips" aria-label="Why this scent was suggested">
           {p.reason_tags.map((tag) => (
@@ -148,6 +157,11 @@ export function ProductCard({ product: p, rec }) {
       )}
     </article>
   );
+}
+function ProductSkeleton() {
+  return <div className="product-grid" role="status" aria-label="Loading fragrances">
+    {[0, 1, 2, 3].map((id) => <div className="product-skeleton" key={id} aria-hidden="true"><div /><span /><span /><span /></div>)}
+  </div>;
 }
 export function Grid({ products, rec, limit }) {
   return (
@@ -208,13 +222,15 @@ function Layout() {
           <button
             className="icon mobile-menu"
             aria-label="Toggle navigation"
+            aria-expanded={open}
             onClick={() => setOpen(!open)}
           >
             {open ? <X /> : <Menu />}
           </button>
         </div>
       </header>
-      <main>
+      <Link className="mobile-search" to="/shop"><Search size={17} /> Search fragrances, brands and notes <ArrowRight size={16} /></Link>
+      <main id="main-content">
         <Outlet />
       </main>
       <footer>
@@ -262,29 +278,41 @@ function Layout() {
   );
 }
 function Home() {
-  const { user } = useShop();
+  const { user, sessionReady } = useShop();
   const [featured, setFeatured] = useState([]),
     [rec, setRec] = useState(null),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [loading, setLoading] = useState(true),
+    [retry, setRetry] = useState(0);
   useEffect(() => {
     let active = true;
-    Promise.all([api.get("/products"), api.get("/recommend/user")])
-      .then(([a, b]) => {
+    setLoading(true);
+    setError("");
+    api.get("/products")
+      .then((r) => {
         if (active) {
-          setFeatured(["Dior", "Yves Saint Laurent", "Tom Ford", "Creed"].map((brand) => a.data.products.find((p) => p.brand === brand)).filter(Boolean));
-          setRec(b.data);
+          const edit = ["Dior", "Yves Saint Laurent", "Tom Ford", "Creed"].map((brand) => r.data.products.find((p) => p.brand === brand)).filter(Boolean);
+          setFeatured(edit.length ? edit : r.data.products.slice(0, 4));
         }
       })
-      .catch((e) => active && setError(message(e)));
-    return () => {
-      active = false;
-    };
-  }, [user.consent]);
+      .catch((e) => active && setError(message(e)))
+      .finally(() => active && setLoading(false));
+    return () => { active = false; };
+  }, [retry]);
+  useEffect(() => {
+    if (!sessionReady) return;
+    let active = true;
+    setRec(null);
+    api.get("/recommend/user")
+      .then((r) => active && setRec(r.data))
+      .catch(() => {});
+    return () => { active = false; };
+  }, [sessionReady, user.consent]);
   return (
     <>
       <section className="hero">
         <img
-          src="/images/hero.png"
+          src="/images/hero.webp"
           alt="Amber fragrance bottles on dark sculptural stone"
           fetchPriority="high"
         />
@@ -336,7 +364,9 @@ function Home() {
           </Link>
         </div>
         <ErrorBox error={error} />
-        <Grid products={featured} />
+        {error && <button className="outline" onClick={() => setRetry((n) => n + 1)}>Reload scents</button>}
+        {loading ? <ProductSkeleton /> : <Grid products={featured} />}
+
       </section>
       <section className="quiz-banner">
         <div className="orb">
@@ -373,7 +403,7 @@ function Home() {
             Your preferences <ArrowUpRight size={16} />
           </Link>
         </div>
-        <Grid products={rec?.products} rec={rec} limit={4} />
+        <Grid products={rec?.products || featured} rec={rec} limit={4} />
         <p className="metadata">
           {user.consent
             ? "Your quiz, wishlist and browsing help shape this edit."
@@ -647,7 +677,7 @@ function Shop() {
         )}
       </div>
       <ErrorBox error={error} />
-      <Grid products={data.products} />
+      {loading && !data.products.length ? <ProductSkeleton /> : <Grid products={data.products} />}
       {!loading && !data.products.length && (
         <div className="empty">
           <h2>No scents in this edit.</h2>
@@ -1554,11 +1584,11 @@ export default function App() {
             <Route index element={<Home />} />
             <Route path="shop" element={<Shop />} />
             <Route path="product/:slug" element={<Product />} />
-            <Route path="quiz" element={<Quiz />} />
-            <Route path="wishlist" element={<Wishlist />} />
-            <Route path="cart" element={<Cart />} />
-            <Route path="account" element={<Account />} />
-            <Route path="privacy" element={<Privacy />} />
+            <Route path="quiz" element={<SessionBoundary><Quiz /></SessionBoundary>} />
+            <Route path="wishlist" element={<SessionBoundary><Wishlist /></SessionBoundary>} />
+            <Route path="cart" element={<SessionBoundary><Cart /></SessionBoundary>} />
+            <Route path="account" element={<SessionBoundary><Account /></SessionBoundary>} />
+            <Route path="privacy" element={<SessionBoundary><Privacy /></SessionBoundary>} />
             <Route path="intelligence" element={<Intelligence />} />
             <Route
               path="*"
@@ -1580,7 +1610,7 @@ export default function App() {
                   <div className="section">Opening your dashboard…</div>
                 }
               >
-                <Admin />
+                <SessionBoundary><Admin /></SessionBoundary>
               </Suspense>
             }
           />
