@@ -184,13 +184,16 @@ def stripe_params(order, db):
     if order.customer_phone:
         shipping["phone"] = order.customer_phone
     return {"mode": "payment", "client_reference_id": order.id,
+            "adaptive_pricing": {"enabled": False},
+            "branding_settings": {"display_name": "SCENTHAUS", "button_color": "#171717", "background_color": "#ffffff"},
             "customer_email": order.customer_email,
             "metadata": {"order_id": order.id, "order_number": order.order_number},
             "payment_intent_data": {"metadata": {"order_id": order.id}, "shipping": shipping,
                                     "receipt_email": order.customer_email},
             "line_items": [{"quantity": item.quantity, "price_data": {
                 "currency": "sgd", "unit_amount": cents(item.unit_price),
-                "product_data": {"name": f"{item.product_snapshot['brand']} · {item.product_snapshot['name']} · {item.product_snapshot['size_ml']}ml"}}}
+                "product_data": {"name": f"{item.product_snapshot['brand']} · {item.product_snapshot['name']} · {item.product_snapshot['size_ml']}ml",
+                                 **({"images": [root + item.product_snapshot["image"]]} if (item.product_snapshot.get("image") or "").startswith("/images/") else {})}}}
                 for item in order_items(order, db)],
             "success_url": root + "/checkout/success?order_id=" + order.id,
             "cancel_url": root + "/checkout/cancelled?order_id=" + order.id,
