@@ -2158,3 +2158,74 @@ footer p {
     font-size: 11px;
   }
 }
+
+/* Fast, accessible storefront and size-first shopping. */
+.mobile-search { display: none; }
+.connection-notice { position: fixed; bottom: 20px; left: 20px; right: 20px; margin: auto; max-width: 620px; z-index: 120; padding: 12px 16px; background: #fff; border: 1px solid #ddd; box-shadow: 0 4px 24px #0002; display: flex; align-items: center; gap: 16px; font-size: 13px; }
+.connection-notice button { min-height: 44px; padding: 8px 14px; }
+.card-sizes { color: #626262; font-size: 11px; margin: 0 0 12px; line-height: 1.4; }
+.product-card { display: flex; flex-direction: column; min-width: 0; }
+.product-card .price { margin: 12px 0 6px; }
+.product-card .quick-add { min-height: 44px; }
+.product-card .metadata { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin-bottom: auto; }
+.product-card > .eyebrow { min-height: 24px; margin-bottom: 6px; }
+.product-image { aspect-ratio: 1 / 1; }
+.product-image .heart { min-height: 44px; min-width: 44px; }
+.product-image img { object-fit: contain; }
+.product-skeleton > div { aspect-ratio: 1; background: #f2f1ef; margin-bottom: 20px; }
+.product-skeleton > span { display: block; width: 75%; height: 14px; background: #f2f1ef; margin: 14px 0; }
+.product-skeleton > span:last-child { width: 100%; height: 44px; }
+.quick-dialog { border: 0; padding: 0; width: min(520px, calc(100% - 32px)); max-height: calc(100dvh - 40px); margin: auto; background: #fff; color: #232323; box-shadow: 0 24px 80px #0003; border-radius: 8px; }
+.quick-dialog::backdrop { background: #0007; }
+body:has(.quick-dialog[open]) { overflow: hidden; }
+.quick-content { padding: 24px; }
+.quick-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.quick-heading .eyebrow { margin: 0; }
+.quick-product { display: flex; align-items: center; gap: 20px; padding-bottom: 24px; border-bottom: 1px solid #e5e5e5; }
+.quick-product > img { width: 110px; height: 130px; object-fit: contain; background: #faf9f7; }
+.quick-product h2 { font-family: Arial, sans-serif; font-size: 22px; font-weight: 600; line-height: 1.25; margin: 0; }
+.quick-product .eyebrow { font-size: 10px; margin-bottom: 8px; }
+.quick-product .metadata { margin: 10px 0 0; }
+.quick-variants { border: 0; padding: 0; margin: 22px 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.quick-variants legend { margin-bottom: 14px; font-weight: 600; font-size: 14px; }
+.quick-variants button { flex-direction: column; gap: 6px; padding: 14px 6px; min-height: 76px; border-radius: 3px; }
+.quick-variants button span:first-child { font-weight: 600; }
+.quick-variants button span:nth-child(2) { font-size: 12px; }
+.quick-variants small { font-size: 10px; }
+.quick-total { display: flex; align-items: center; justify-content: space-between; margin: 20px 0; font-size: 13px; }
+.quick-total strong { font-size: 20px; }
+.quick-details { display: block; text-align: center; text-decoration: underline; text-underline-offset: 4px; padding: 16px; font-size: 13px; }
+.quick-demo { text-align: center; font-size: 11px; color: #666; margin: 8px 0 0; }
+.quick-success { text-align: center; padding-top: 22px; }
+.quick-success > svg { margin: auto auto 12px; }
+.quick-success h3 { font-family: Arial, sans-serif; font-weight: 600; font-size: 24px; margin: 0; }
+.quick-success p { font-size: 14px; }
+.quick-success .outline { margin-top: 12px; }
+@media (max-width: 800px) {
+  .mobile-search { display: flex; align-items: center; gap: 10px; padding: 14px 20px; border-bottom: 1px solid #ddd; background: #fafafa; font-size: 12px; min-height: 48px; }
+  .mobile-search > svg:last-child { margin-left: auto; }
+}
+@media (max-width: 520px) {
+  .site-header .wordmark { font-size: 22px; letter-spacing: .035em; }
+  .site-header .brand-caption { font-size: 6px; letter-spacing: .17em; margin-top: 9px; }
+  .header-icons > a, .header-icons > button { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 8px; }
+  .header-icons > a[aria-label="Search scents"], .header-icons > a[aria-label="Your account"] { display: none; }
+  .site-header { height: 68px; }
+  .site-header nav { top: 68px; }
+  .announcement { height: auto; min-height: 32px; padding: 6px 12px; line-height: 1.4; }
+  .announcement a { display: none; }
+  .product-grid { gap: 28px 14px; }
+  .product-card > .eyebrow { font-size: 9px; min-height: 24px; line-height: 1.4; }
+  .product-image { margin-bottom: 12px; }
+  .product-image img { padding: 12px; }
+  .product-image .heart { top: 4px; right: 4px; box-shadow: none; }
+  .card-title { min-height: 40px; font-size: 14px; }
+  .product-card .metadata { font-size: 11px; margin-top: 8px; min-height: 32px; }
+  .product-card .price { font-size: 14px; }
+  .section-heading h2 { font-size: 30px; }
+  .quick-dialog { width: 100%; max-height: calc(100dvh - 20px); margin: auto 0 0; border-radius: 16px 16px 0 0; }
+  .quick-content { padding: 18px 20px max(20px, env(safe-area-inset-bottom)); }
+  .quick-product > img { width: 88px; height: 105px; }
+  .quick-product h2 { font-size: 20px; }
+  .connection-notice { left: 12px; right: 12px; bottom: 12px; }
+}
