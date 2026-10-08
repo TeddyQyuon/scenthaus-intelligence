@@ -138,3 +138,11 @@ The release also preserves the deployed account-security extension: authenticato
 ## Secure Stripe checkout
 
 See [Stripe configuration and operations](docs/stripe-checkout.md) for required environment variables, webhook events, authoritative pricing, stock reservation, idempotency, test cards and merchant launch limitations. `/checkout` is the storefront checkout; `/api/stripe/webhook` receives signed payment confirmations. The legacy demo payment endpoint is retired.
+
+### Storefront UX refinement - October 2026
+
+The collection now shows removable active-filter chips and a clear-all action,
+announces result updates, and explains when natural-language search controls the
+results. Mobile filter controls use a two-column grid. Wishlist state is exposed
+to assistive technology and shopping controls have larger touch targets.
+Frontend production build and the 15 existing unit tests pass for this change.
