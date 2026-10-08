@@ -109,6 +109,7 @@ export function ProductCard({ product: p, rec }) {
         <button
           className={`icon heart ${saved ? "saved" : ""}`}
           aria-label={`${saved ? "Remove" : "Save"} ${p.name}`}
+          aria-pressed={saved}
           disabled={busy}
           onClick={() => action(() => wish(p))}
         >
@@ -505,6 +506,13 @@ function Shop() {
     setError("");
   }
   const availableBrands = data.brands.length ? data.brands : BRAND_HOUSES;
+  const activeFilters = Object.entries(filters).filter(([key, value]) =>
+    key !== "sort" && value !== "" && value !== false &&
+    (!(natural && filters.q) || key === "q"),
+  );
+  const filterLabel = (key, value) => key === "q" ? `Search: ${value}` :
+    key === "budget" ? `Under $${value}` : key === "size" ? `${value}ml` :
+    key === "in_stock" ? "In stock" : value;
   const visibleBrands = availableBrands.filter((brand) =>
     brand.toLocaleLowerCase().includes(brandQuery.trim().toLocaleLowerCase()),
   );
@@ -668,7 +676,20 @@ function Shop() {
           <option value="price-high">Price: high to low</option>
         </select>
       </div>
-      <div className="results-count" id="products">
+      {!!activeFilters.length && (
+        <div className="active-filters" aria-label="Active collection filters">
+          {activeFilters.map(([key, value]) => (
+            <button className="filter-chip" key={key} type="button"
+              onClick={() => change(key, key === "in_stock" ? false : "")}
+              aria-label={`Remove ${filterLabel(key, value)} filter`}>
+              {filterLabel(key, value)} <X size={14} aria-hidden="true" />
+            </button>
+          ))}
+          <button className="clear-filters" type="button" onClick={resetFilters}>Clear all</button>
+        </div>
+      )}
+      {natural && filters.q && <p className="metadata">Your description controls the results. Clear the search to use individual filters.</p>}
+      <div className="results-count" id="products" role="status" aria-live="polite">
         {loading ? "Finding your scents…" : `${data.products.length} scents`}
         {data.parsed && (
           <span>
