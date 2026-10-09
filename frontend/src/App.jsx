@@ -32,7 +32,7 @@ import { ShopProvider, SessionBoundary, useShop } from "./context";
 import { api, money, message, download } from "./api";
 import { CheckoutPage, CheckoutSuccess, CheckoutCancelled, OrderDetail } from "./Checkout";
 import QuickAdd from "./QuickAdd";
-import AccountSecurity from "./AccountSecurity";
+const AccountSecurity = lazy(() => import("./AccountSecurity"));
 import { BRAND_HOUSES } from "./brands";
 const Admin = lazy(() => import("./Admin"));
 function Scroll() {
@@ -1321,7 +1321,7 @@ function Account() {
         </button>
       </div>
       <ErrorBox error={error} />
-      <AccountSecurity />
+      <Suspense fallback={<p role="status">Opening account security…</p>}><AccountSecurity /></Suspense>
       <div className="preferences">
         <h3>Your preferences</h3>
         <label className="check-row">
