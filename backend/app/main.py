@@ -3,13 +3,11 @@ import secrets
 from collections import defaultdict, deque
 from datetime import timedelta, date
 from uuid import uuid4
-import numpy as np
 from fastapi import FastAPI, Depends, HTTPException, Request, Response, Query
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, delete, update, text, func, or_
 from sqlalchemy.exc import IntegrityError
-from sklearn.metrics.pairwise import cosine_similarity
 from .config import settings
 from .database import get_db
 from .models import *
@@ -25,31 +23,11 @@ from .security import (
     hasher,
 )
 from .ml.serving import store
-from .ml.recommender import scores, mmr, quiz_weights, scale
 from .catalog import ACCORDS
-from .ml.experiments import ab_simulate
-from .ml.metrics import metrics as forecast_metrics
-from .analytics import overview, segments, date_range
 from .account_security import router as security_router, check_rate_limit, record_event, verify_factor
 from .checkout import router as checkout_router, public_order
 
-from contextlib import asynccontextmanager
-
-
-@asynccontextmanager
-async def lifespan(app):
-    b = store.get()
-    if b:
-        from ml.rec_serving import load_cache as load_tower
-        from ml.search import load_index
-
-        load_tower(b["torch_recommender"])
-        load_index(b["search_path"])
-    yield
-
-
 app = FastAPI(
-    lifespan=lifespan,
     title="SCENTHAUS Intelligence",
     version="1.0.0",
     docs_url="/docs" if settings.environment != "production" else None,
@@ -285,6 +263,10 @@ def history(db, user):
 def results(
     db, user, kind="user", product_id=None, k=8, quiz=None, experiment=None, **filters
 ):
+    import numpy as np
+    from sklearn.metrics.pairwise import cosine_similarity
+    from .ml.recommender import scores, mmr, scale
+
     b = bundle()
     model = b["recommender"]
     eligible = available(db, **filters)
@@ -648,7 +630,12 @@ def products(
     )
     return {
         "products": rows,
-        "brands": sorted({p["brand"] for p in available(db, in_stock=False)}),
+        "brands": list(db.scalars(
+            select(Product.brand).where(
+                Product.hidden == False, Product.launch_date <= date.today(),
+                Product.id.in_(select(Variant.product_id)),
+            ).distinct().order_by(Product.brand)
+        )),
     }
 
 
@@ -906,6 +893,8 @@ def cart_recs(user=Depends(user_required), db=Depends(get_db)):
 
 @app.post("/recommend/quiz")
 def quiz(body: Quiz, user=Depends(user_required), db=Depends(get_db)):
+    from .ml.recommender import quiz_weights
+
     answers = body.model_dump()
     weights = quiz_weights(answers)
     if user.consent:
@@ -1051,6 +1040,8 @@ def admin_overview(
     user=Depends(admin_required),
     db=Depends(get_db),
 ):
+    from .analytics import overview
+
     return overview(db, start, end)
 
 
@@ -1088,6 +1079,8 @@ def admin_inventory(user=Depends(admin_required), db=Depends(get_db)):
 
 @app.get("/admin/segments")
 def admin_segments(user=Depends(admin_required), db=Depends(get_db)):
+    from .analytics import segments
+
     return segments(db)
 
 
@@ -1190,6 +1183,9 @@ def models(user=Depends(admin_required), db=Depends(get_db)):
 
 @app.get("/admin/monitor")
 def monitor(user=Depends(admin_required), db=Depends(get_db)):
+    import numpy as np
+    from .ml.metrics import metrics as forecast_metrics
+
     b = bundle()
     data = np.array([l[1] for l in latencies])
     views = db.execute(
@@ -1241,6 +1237,8 @@ def monitor(user=Depends(admin_required), db=Depends(get_db)):
 
 @app.post("/admin/ab-simulate")
 def experiment(body: Experiment, user=Depends(admin_required)):
+    from .ml.experiments import ab_simulate
+
     return ab_simulate(**body.model_dump())
 
 
@@ -1252,6 +1250,8 @@ def export(
     user=Depends(admin_required),
     db=Depends(get_db),
 ):
+    from .analytics import date_range
+
     if kind == "inventory":
         rows = inventory_rows(db)
     elif kind == "products":
