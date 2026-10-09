@@ -1,6 +1,7 @@
 import csv, io, re, time
 import secrets
 from collections import defaultdict, deque
+from contextlib import asynccontextmanager
 from datetime import timedelta, date
 from uuid import uuid4
 from fastapi import FastAPI, Depends, HTTPException, Request, Response, Query
@@ -27,7 +28,16 @@ from .catalog import ACCORDS
 from .account_security import router as security_router, check_rate_limit, record_event, verify_factor
 from .checkout import router as checkout_router, public_order
 
+
+@asynccontextmanager
+async def lifespan(app):
+    # The mounted Vercel entrypoint imports this hook. Models load on demand
+    # through ModelStore and the serving modules' existing process caches.
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="SCENTHAUS Intelligence",
     version="1.0.0",
     docs_url="/docs" if settings.environment != "production" else None,
