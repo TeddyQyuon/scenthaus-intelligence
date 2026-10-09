@@ -11,11 +11,12 @@ from sqlalchemy.pool import StaticPool
 from app.database import Base, get_db
 from app.main import app, store
 from app.models import Product, Variant
+from main import app as deployed_app
 
 
 def test_app_import_defers_scientific_dependencies():
     result = subprocess.run(
-        [sys.executable, "-c", "import app.main, sys; assert not any(name in sys.modules for name in ('numpy', 'pandas', 'sklearn', 'onnxruntime', 'tokenizers'))"],
+        [sys.executable, "-c", "import main, app.main, sys; assert not any(name in sys.modules for name in ('numpy', 'pandas', 'sklearn', 'onnxruntime', 'tokenizers'))"],
         check=False, capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stderr
@@ -47,18 +48,18 @@ def test_catalogue_without_models_uses_three_queries_and_keeps_brand_filters(mon
     monkeypatch.setattr(store, "get", unavailable_models)
     app.dependency_overrides[get_db] = database
     try:
-        with TestClient(app) as client:
-            response = client.get("/products?brand=Dior&in_stock=true")
+        with TestClient(deployed_app) as client:
+            response = client.get("/api/products?brand=Dior&in_stock=true")
             assert response.status_code == 200
             data = response.json()
             assert [p["brand"] for p in data["products"]] == ["Dior"]
             assert data["brands"] == ["Chanel", "Dior"]
             assert len(queries) == 3
             queries.clear()
-            data = client.get("/products").json()
+            data = client.get("/api/products").json()
             assert len(data["products"]) == 2
             assert len(queries) == 3
-            assert client.get("/admin/overview").status_code == 401
+            assert client.get("/api/admin/overview").status_code == 401
     finally:
         app.dependency_overrides.pop(get_db, None)
         engine.dispose()
