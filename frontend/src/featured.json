@@ -1,0 +1,336 @@
+[
+  {
+    "id": 1,
+    "slug": "dior-dior-sauvage-edp",
+    "name": "Dior Sauvage Edp",
+    "brand": "Dior",
+    "concentration": "EDP",
+    "category": "Fresh",
+    "gender": "Masculine",
+    "description": "Explore Dior Sauvage Edp by Dior. Product photograph and key notes are sourced; SGD prices, availability and style tags are demo annotations.",
+    "notes": {
+      "top": [],
+      "heart": [],
+      "base": []
+    },
+    "accords": [
+      "citrus",
+      "fresh",
+      "aquatic"
+    ],
+    "seasons": [
+      "Summer",
+      "Spring"
+    ],
+    "occasions": [
+      "Office",
+      "Everyday"
+    ],
+    "longevity": 0.0,
+    "sillage": "Not rated",
+    "pinned": false,
+    "hidden": false,
+    "image": "/images/products/001-3bb5b8cca9.png",
+    "source": {
+      "id": 1,
+      "name": "Dior Sauvage Edp",
+      "brand": "Dior",
+      "category": "Fresh",
+      "concentration": "EDP",
+      "key_notes": [],
+      "sizes_ml": [
+        60,
+        100,
+        200
+      ],
+      "gender": "Masculine",
+      "image_url": "https://cdn.shopify.com/s/files/1/2170/5343/products/Dior-sauvage-Edp.png?v=1571609964",
+      "image_source": "https://perfumeonline.ca/products/dior-sauvage",
+      "product_url": "https://perfumeonline.ca/products/dior-sauvage",
+      "source_kind": "retailer",
+      "verified_at": "2026-10-05",
+      "metadata_note": "Notes extracted from source; accord, season, wear and demo price annotations are estimates, not manufacturer claims.",
+      "image_path": "/images/products/001-3bb5b8cca9.png",
+      "image_sha256": "3bb5b8cca9bb72a9ebf9f449ea601556f0ae77965f2f4e022d99f652d15fd044",
+      "image_bytes": 202159
+    },
+    "simulated_commerce": true,
+    "variants": [
+      {
+        "id": 1,
+        "sku": "SH-001-60",
+        "size_ml": 60,
+        "price": 138.48,
+        "stock": 71
+      },
+      {
+        "id": 2,
+        "sku": "SH-001-100",
+        "size_ml": 100,
+        "price": 193.01,
+        "stock": 114
+      },
+      {
+        "id": 3,
+        "sku": "SH-001-200",
+        "size_ml": 200,
+        "price": 302.86,
+        "stock": 94
+      }
+    ],
+    "price_from": 138.48,
+    "in_stock": true
+  },
+  {
+    "id": 13,
+    "slug": "yves-saint-laurent-ysl-libre-edt",
+    "name": "Ysl Libre Edt",
+    "brand": "Yves Saint Laurent",
+    "concentration": "EDT",
+    "category": "Fresh",
+    "gender": "Feminine",
+    "description": "Explore Ysl Libre Edt by Yves Saint Laurent. Product photograph and key notes are sourced; SGD prices, availability and style tags are demo annotations.",
+    "notes": {
+      "top": [],
+      "heart": [],
+      "base": []
+    },
+    "accords": [
+      "citrus",
+      "fresh",
+      "aquatic"
+    ],
+    "seasons": [
+      "Summer",
+      "Spring"
+    ],
+    "occasions": [
+      "Office",
+      "Everyday"
+    ],
+    "longevity": 0.0,
+    "sillage": "Not rated",
+    "pinned": false,
+    "hidden": false,
+    "image": "/images/products/013-5d213e6e72.png",
+    "source": {
+      "id": 13,
+      "name": "Ysl Libre Edt",
+      "brand": "Yves Saint Laurent",
+      "category": "Fresh",
+      "concentration": "EDT",
+      "key_notes": [],
+      "sizes_ml": [
+        90
+      ],
+      "gender": "Feminine",
+      "image_url": "https://cdn.shopify.com/s/files/1/2170/5343/products/Ysl-Libre-Edt.png?v=1655832222",
+      "image_source": "https://perfumeonline.ca/products/ysl-libre-edt",
+      "product_url": "https://perfumeonline.ca/products/ysl-libre-edt",
+      "source_kind": "retailer",
+      "verified_at": "2026-10-05",
+      "metadata_note": "Notes extracted from source; accord, season, wear and demo price annotations are estimates, not manufacturer claims.",
+      "image_path": "/images/products/013-5d213e6e72.png",
+      "image_sha256": "5d213e6e7238e83b29d90457684c522f165dd8abd5ace458fc59ed4bcd1369c6",
+      "image_bytes": 214379
+    },
+    "simulated_commerce": true,
+    "variants": [
+      {
+        "id": 22,
+        "sku": "SH-013-90",
+        "size_ml": 90,
+        "price": 238.84,
+        "stock": 69
+      }
+    ],
+    "price_from": 238.84,
+    "in_stock": true
+  },
+  {
+    "id": 23,
+    "slug": "tom-ford-oud-wood-eau-de-parfum",
+    "name": "Oud Wood Eau de Parfum",
+    "brand": "Tom Ford",
+    "concentration": "EDP",
+    "category": "Woody",
+    "gender": "Masculine",
+    "description": "Explore Oud Wood Eau de Parfum by Tom Ford. Product photograph and key notes are sourced; SGD prices, availability and style tags are demo annotations.",
+    "notes": {
+      "top": [],
+      "heart": [
+        "sandalwood",
+        "vetiver",
+        "oud",
+        "rose",
+        "amber",
+        "tonka",
+        "cardamom"
+      ],
+      "base": []
+    },
+    "accords": [
+      "woody",
+      "spicy",
+      "fresh"
+    ],
+    "seasons": [
+      "Autumn",
+      "Winter"
+    ],
+    "occasions": [
+      "Office",
+      "Everyday"
+    ],
+    "longevity": 0.0,
+    "sillage": "Not rated",
+    "pinned": false,
+    "hidden": false,
+    "image": "/images/products/023-ead3ede997.png",
+    "source": {
+      "id": 23,
+      "name": "Oud Wood Eau de Parfum",
+      "brand": "Tom Ford",
+      "category": "Woody",
+      "concentration": "EDP",
+      "key_notes": [
+        "sandalwood",
+        "vetiver",
+        "oud",
+        "rose",
+        "amber",
+        "tonka",
+        "cardamom"
+      ],
+      "sizes_ml": [
+        30,
+        50,
+        100
+      ],
+      "gender": "Masculine",
+      "image_url": "https://cdn.shopify.com/s/files/1/0761/9690/5173/files/tf_sku_T1XF01_2000x2000_0.png?v=1791187360",
+      "image_source": "https://www.tomfordbeauty.com/products/oud-wood-eau-de-parfum",
+      "product_url": "https://www.tomfordbeauty.com/products/oud-wood-eau-de-parfum",
+      "source_kind": "manufacturer",
+      "verified_at": "2026-10-05",
+      "metadata_note": "Notes extracted from source; accord, season, wear and demo price annotations are estimates, not manufacturer claims.",
+      "image_path": "/images/products/023-ead3ede997.png",
+      "image_sha256": "ead3ede997a949b562007a49519fd14c36580db142af96bfe817bfb81fb5e32e",
+      "image_bytes": 136253
+    },
+    "simulated_commerce": true,
+    "variants": [
+      {
+        "id": 49,
+        "sku": "SH-023-30",
+        "size_ml": 30,
+        "price": 212.37,
+        "stock": 79
+      },
+      {
+        "id": 50,
+        "sku": "SH-023-50",
+        "size_ml": 50,
+        "price": 296.0,
+        "stock": 99
+      },
+      {
+        "id": 51,
+        "sku": "SH-023-100",
+        "size_ml": 100,
+        "price": 464.47,
+        "stock": 29
+      }
+    ],
+    "price_from": 212.37,
+    "in_stock": true
+  },
+  {
+    "id": 29,
+    "slug": "creed-aventus",
+    "name": "Aventus",
+    "brand": "Creed",
+    "concentration": "Unverified",
+    "category": "Fresh",
+    "gender": "Masculine",
+    "description": "Explore Aventus by Creed. Product photograph and key notes are sourced; SGD prices, availability and style tags are demo annotations.",
+    "notes": {
+      "top": [],
+      "heart": [
+        "bergamot",
+        "birch"
+      ],
+      "base": []
+    },
+    "accords": [
+      "citrus",
+      "fresh",
+      "aquatic"
+    ],
+    "seasons": [
+      "Summer",
+      "Spring"
+    ],
+    "occasions": [
+      "Office",
+      "Everyday"
+    ],
+    "longevity": 0.0,
+    "sillage": "Not rated",
+    "pinned": false,
+    "hidden": false,
+    "image": "/images/products/029-bf40f98603.jpg",
+    "source": {
+      "id": 29,
+      "name": "Aventus",
+      "brand": "Creed",
+      "category": "Fresh",
+      "concentration": "Unverified",
+      "key_notes": [
+        "bergamot",
+        "birch"
+      ],
+      "sizes_ml": [
+        30,
+        50,
+        100
+      ],
+      "gender": "Masculine",
+      "image_url": "https://cdn.shopify.com/s/files/1/0271/3298/5441/files/Aventus_100ml_Mobile_1_0e7694fb-2806-484a-83ca-197c61011d63.jpg?v=1788963460",
+      "image_source": "https://creedboutique.com/products/aventus",
+      "product_url": "https://creedboutique.com/products/aventus",
+      "source_kind": "manufacturer",
+      "verified_at": "2026-10-05",
+      "metadata_note": "Notes extracted from source; accord, season, wear and demo price annotations are estimates, not manufacturer claims.",
+      "image_path": "/images/products/029-bf40f98603.jpg",
+      "image_sha256": "bf40f98603bb7b2455648b5870a614a345749f097f702b3fb0e923a26403b7be",
+      "image_bytes": 17568
+    },
+    "simulated_commerce": true,
+    "variants": [
+      {
+        "id": 67,
+        "sku": "SH-029-30",
+        "size_ml": 30,
+        "price": 206.63,
+        "stock": 121
+      },
+      {
+        "id": 68,
+        "sku": "SH-029-50",
+        "size_ml": 50,
+        "price": 288.0,
+        "stock": 21
+      },
+      {
+        "id": 69,
+        "sku": "SH-029-100",
+        "size_ml": 100,
+        "price": 451.92,
+        "stock": 71
+      }
+    ],
+    "price_from": 206.63,
+    "in_stock": true
+  }
+]
