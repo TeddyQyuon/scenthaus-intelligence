@@ -34,6 +34,7 @@ import { CheckoutPage, CheckoutSuccess, CheckoutCancelled, OrderDetail } from ".
 import QuickAdd from "./QuickAdd";
 const AccountSecurity = lazy(() => import("./AccountSecurity"));
 import { BRAND_HOUSES } from "./brands";
+import { loadCatalogue, peekCatalogue, filterCatalogue, getFeaturedProducts } from "./catalogue";
 const Admin = lazy(() => import("./Admin"));
 function Scroll() {
   const { pathname, hash } = useLocation();
@@ -282,25 +283,33 @@ function Layout() {
 }
 function Home() {
   const { user, sessionReady } = useShop();
-  const [featured, setFeatured] = useState([]),
+  const initialFeatured = getFeaturedProducts();
+  const [featured, setFeatured] = useState(initialFeatured),
     [rec, setRec] = useState(null),
     [error, setError] = useState(""),
-    [loading, setLoading] = useState(true),
+    [loading, setLoading] = useState(initialFeatured.length === 0),
     [retry, setRetry] = useState(0);
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError("");
-    api.get("/products")
-      .then((r) => {
-        if (active) {
-          const edit = ["Dior", "Yves Saint Laurent", "Tom Ford", "Creed"].map((brand) => r.data.products.find((p) => p.brand === brand)).filter(Boolean);
-          setFeatured(edit.length ? edit : r.data.products.slice(0, 4));
-        }
+    if (!featured.length) setLoading(true);
+    loadCatalogue()
+      .then((data) => {
+        if (!active || !data?.products) return;
+        const edit = ["Dior", "Yves Saint Laurent", "Tom Ford", "Creed"]
+          .map((brand) => data.products.find((p) => p.brand === brand))
+          .filter(Boolean);
+        setFeatured(edit.length >= 4 ? edit : data.products.slice(0, 4));
+        setError("");
       })
-      .catch((e) => active && setError(message(e)))
-      .finally(() => active && setLoading(false));
-    return () => { active = false; };
+      .catch((e) => {
+        if (active && !featured.length) setError(message(e));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [retry]);
   useEffect(() => {
     if (!sessionReady) return;
@@ -368,7 +377,7 @@ function Home() {
         </div>
         <ErrorBox error={error} />
         {error && <button className="outline" onClick={() => setRetry((n) => n + 1)}>Reload scents</button>}
-        {loading ? <ProductSkeleton /> : <Grid products={featured} />}
+        {loading && !featured.length ? <ProductSkeleton /> : <Grid products={featured} />}
 
       </section>
       <section className="quiz-banner">
@@ -436,56 +445,92 @@ function Home() {
 function Shop() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
-  const [data, setData] = useState({ products: [], brands: BRAND_HOUSES }),
-    [filters, setFilters] = useState({
-      q: "",
-      category: "",
-      brand: searchParams.get("brand") || "",
-      budget: "",
-      size: "",
-      gender: "",
-      season: "",
-      in_stock: false,
-      sort: "featured",
-    }),
-    [natural, setNatural] = useState(false),
+  const initialBrand = searchParams.get("brand") || "";
+  const [filters, setFilters] = useState({
+    q: "",
+    category: "",
+    brand: initialBrand,
+    budget: "",
+    size: "",
+    gender: "",
+    season: "",
+    in_stock: false,
+    sort: "featured",
+  });
+  const [rawCatalogue, setRawCatalogue] = useState(() => peekCatalogue());
+  const [data, setData] = useState(() => {
+    const cached = peekCatalogue();
+    if (cached) return filterCatalogue(cached, { ...filters, brand: initialBrand });
+    return { products: [], brands: BRAND_HOUSES };
+  });
+  const [natural, setNatural] = useState(false),
     [brandOpen, setBrandOpen] = useState(location.hash === "#brands"),
     [brandQuery, setBrandQuery] = useState(""),
     [error, setError] = useState(""),
-    [loading, setLoading] = useState(true);
+    [loading, setLoading] = useState(!peekCatalogue());
+
+  useEffect(() => {
+    let active = true;
+    loadCatalogue()
+      .then((catalogue) => {
+        if (!active || !catalogue) return;
+        setRawCatalogue(catalogue);
+      })
+      .catch((e) => {
+        if (active && !rawCatalogue) setError(message(e));
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   useEffect(() => {
     const brand = searchParams.get("brand") || "";
     setFilters((current) =>
       current.brand === brand ? current : { ...current, brand },
     );
   }, [searchParams]);
+
   useEffect(() => {
     if (location.hash === "#brands") setBrandOpen(true);
   }, [location.hash]);
+
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    const timer = setTimeout(() => {
-      const params = Object.fromEntries(
-        Object.entries(filters).filter(([k, v]) => v !== ""),
-      );
-      api
-        .get(natural && filters.q ? "/search" : "/products", {
-          params: natural && filters.q ? { q: filters.q } : params,
+    if (natural && filters.q) {
+      setLoading(true);
+      const timer = setTimeout(() => {
+        api
+          .get("/search", { params: { q: filters.q } })
+          .then(
+            (r) =>
+              active &&
+              setData((d) => ({ ...r.data, brands: r.data.brands || d.brands })),
+          )
+          .catch((e) => active && setError(message(e)))
+          .finally(() => active && setLoading(false));
+      }, 300);
+      return () => {
+        active = false;
+        clearTimeout(timer);
+      };
+    }
+
+    if (rawCatalogue) {
+      setData(filterCatalogue(rawCatalogue, filters));
+      setLoading(false);
+    } else {
+      setLoading(true);
+      loadCatalogue()
+        .then((catalogue) => {
+          if (!active || !catalogue) return;
+          setRawCatalogue(catalogue);
+          setData(filterCatalogue(catalogue, filters));
         })
-        .then(
-          (r) =>
-            active &&
-            setData((d) => ({ ...r.data, brands: r.data.brands || d.brands })),
-        )
         .catch((e) => active && setError(message(e)))
         .finally(() => active && setLoading(false));
-    }, 250);
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, [filters, natural]);
+    }
+  }, [filters, natural, rawCatalogue]);
   function change(key, value) {
     setFilters((f) => ({ ...f, [key]: value }));
     if (key === "brand") {
@@ -721,14 +766,17 @@ function Product() {
   const { slug } = useParams(),
     { add, wish, wishlist, track, notify, user, sessionReady } = useShop();
   const viewed = useRef(null);
-  const [p, setP] = useState(null),
-    [selected, setSelected] = useState(null),
+  const initialProduct = peekCatalogue()?.products?.find((item) => item.slug === slug) || null;
+  const [p, setP] = useState(initialProduct),
+    [selected, setSelected] = useState(
+      initialProduct?.variants?.find((v) => v.stock > 0) || initialProduct?.variants?.[0] || null
+    ),
     [sections, setSections] = useState([]),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
-    setP(null);
+    if (!initialProduct) setP(null);
     api
       .get(`/products/${slug}`)
       .then((r) => {
@@ -738,7 +786,9 @@ function Product() {
           r.data.variants.find((v) => v.stock > 0) || r.data.variants[0],
         );
       })
-      .catch((e) => active && setError(message(e)));
+      .catch((e) => {
+        if (active && !initialProduct) setError(message(e));
+      });
     return () => {
       active = false;
     };

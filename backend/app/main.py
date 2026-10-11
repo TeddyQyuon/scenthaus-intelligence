@@ -82,15 +82,15 @@ async def safeguards(request, call_next):
     response = await call_next(request)
     elapsed = (time.perf_counter() - start) * 1000
     latencies.append((request.url.path, elapsed, response.status_code))
-    response.headers.update(
-        {
-            "X-Content-Type-Options": "nosniff",
-            "X-Frame-Options": "DENY",
-            "Referrer-Policy": "same-origin",
-            "Cache-Control": "no-store",
-            "Server-Timing": f"app;dur={elapsed:.1f}",
-        }
-    )
+    headers = {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "same-origin",
+        "Server-Timing": f"app;dur={elapsed:.1f}",
+    }
+    if "cache-control" not in [k.lower() for k in response.headers.keys()]:
+        headers["Cache-Control"] = "no-store"
+    response.headers.update(headers)
     if settings.environment == "production":
         response.headers["Strict-Transport-Security"] = "max-age=31536000"
     return response
@@ -607,8 +607,13 @@ def personal_export(user=Depends(user_required), db=Depends(get_db)):
     }
 
 
+_catalog_cache = None
+_catalog_cache_time = 0
+
+
 @app.get("/products")
 def products(
+    response: Response,
     q: str | None = None,
     category: str | None = None,
     brand: str | None = None,
@@ -620,6 +625,12 @@ def products(
     sort: str = "featured",
     db=Depends(get_db),
 ):
+    global _catalog_cache, _catalog_cache_time
+    is_default = not any([q, category, brand, budget, size, gender, season]) and not in_stock and sort == "featured"
+    response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
+    if is_default and _catalog_cache is not None and time.time() - _catalog_cache_time < 300:
+        return _catalog_cache
+
     rows = available(
         db,
         q=q,
@@ -638,19 +649,25 @@ def products(
         if sort == "price-high"
         else (lambda p: (not p["pinned"], p["id"]))
     )
-    return {
+    brands = list(db.scalars(
+        select(Product.brand).where(
+            Product.hidden == False, Product.launch_date <= date.today(),
+            Product.id.in_(select(Variant.product_id)),
+        ).distinct().order_by(Product.brand)
+    ))
+    res = {
         "products": rows,
-        "brands": list(db.scalars(
-            select(Product.brand).where(
-                Product.hidden == False, Product.launch_date <= date.today(),
-                Product.id.in_(select(Variant.product_id)),
-            ).distinct().order_by(Product.brand)
-        )),
+        "brands": brands,
     }
+    if is_default:
+        _catalog_cache = res
+        _catalog_cache_time = time.time()
+    return res
 
 
 @app.get("/products/{slug}")
-def product(slug: str, db=Depends(get_db)):
+def product(slug: str, response: Response, db=Depends(get_db)):
+    response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
     p = db.scalar(
         select(Product).where(
             Product.slug == slug,
