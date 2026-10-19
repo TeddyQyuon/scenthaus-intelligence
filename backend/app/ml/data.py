@@ -3,6 +3,7 @@ import json
 import pandas as pd
 from sqlalchemy import select
 from app.models import Product, Variant, Order, OrderItem, User, Wishlist, Event
+from app.tenancy.constants import DEFAULT_TENANT_ID
 
 
 def frame(db, query):
@@ -10,9 +11,13 @@ def frame(db, query):
     return pd.DataFrame(result.fetchall(), columns=result.keys())
 
 
-def load(db):
-    products = frame(db, select(Product.__table__))
-    variants = frame(db, select(Variant.__table__))
+def load(db, tenant_id: str = DEFAULT_TENANT_ID):
+    products = frame(
+        db, select(Product.__table__).where(Product.tenant_id == tenant_id)
+    ).drop(columns=["tenant_id"], errors="ignore")
+    variants = frame(
+        db, select(Variant.__table__).where(Variant.tenant_id == tenant_id)
+    ).drop(columns=["tenant_id"], errors="ignore")
     orders = frame(
         db,
         select(
@@ -25,7 +30,11 @@ def load(db):
         )
         .join(OrderItem, Order.id == OrderItem.order_id)
         .join(User, Order.user_id == User.id)
-        .where(User.consent == True),
+        .where(
+            Order.tenant_id == tenant_id,
+            User.tenant_id == tenant_id,
+            User.consent == True,
+        ),
     )
     orders = orders.merge(
         variants[["id", "product_id", "sku", "size_ml"]],
@@ -37,13 +46,21 @@ def load(db):
         db,
         select(Wishlist.user_id, Wishlist.product_id, Wishlist.created_at)
         .join(User, Wishlist.user_id == User.id)
-        .where(User.consent == True),
+        .where(
+            Wishlist.tenant_id == tenant_id,
+            User.tenant_id == tenant_id,
+            User.consent == True,
+        ),
     )
     events = frame(
         db,
         select(Event.user_id, Event.product_id, Event.event_type, Event.created_at)
         .join(User, Event.user_id == User.id)
-        .where(User.consent == True),
+        .where(
+            Event.tenant_id == tenant_id,
+            User.tenant_id == tenant_id,
+            User.consent == True,
+        ),
     )
     return products, variants, orders, wishes, events
 

@@ -322,10 +322,10 @@ def reconcile_order(order, db):
     db.commit()
 
 
-def reconcile_expired(db):
+def reconcile_expired(db, batch_size: int = 100):
     if configured():
         orders = db.scalars(select(Order).where(Order.stock_reserved.is_(True),
-                           Order.expires_at < now()).order_by(Order.expires_at).limit(3)).all()
+                           Order.expires_at < now()).order_by(Order.expires_at).limit(batch_size)).all()
         for order in orders:
             reconcile_order(order, db)
 
