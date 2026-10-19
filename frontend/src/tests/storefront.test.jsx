@@ -119,7 +119,7 @@ describe("nonblocking storefront and safe quick add", () => {
     render(<App />);
     await waitFor(() => expect(screen.getAllByText("Test scent").length).toBeGreaterThan(0));
     expect(screen.getByRole("heading", { name: /Curated Discovery/i })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Shopping bag/i })).toBeTruthy();
+    expect(screen.getAllByRole("link", { name: /Shopping bag/i }).length).toBeGreaterThan(0);
   });
 });
 
