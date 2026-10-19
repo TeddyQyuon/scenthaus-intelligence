@@ -115,14 +115,11 @@ describe("nonblocking storefront and safe quick add", () => {
     await screen.findByText(/Added 1 × 30ml/);
     expect(api.post).toHaveBeenCalledTimes(2);
   });
-  it("opens the slide-out shopping bag drawer with free shipping progress and discovery sets", async () => {
+  it("renders the curated discovery wardrobes and boutique collection", async () => {
     render(<App />);
     await waitFor(() => expect(screen.getAllByText("Test scent").length).toBeGreaterThan(0));
     expect(screen.getByRole("heading", { name: /Curated Discovery/i })).toBeTruthy();
-    const bagButtons = screen.getAllByRole("button", { name: /Shopping bag/i });
-    fireEvent.click(bagButtons[0]);
-    expect(await screen.findByRole("dialog", { name: /Your Shopping Bag/i })).toBeTruthy();
-    expect(screen.getByText(/Complimentary Tracked Delivery/i)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Shopping bag/i })).toBeTruthy();
   });
 });
 

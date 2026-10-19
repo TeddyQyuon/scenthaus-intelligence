@@ -238,7 +238,7 @@ function Layout() {
           <span className="brand-caption">THE ART OF FINDING YOU</span>
         </Link>
         <nav className={open ? "open" : ""}>
-          <NavLink to="/shop">Shop collection</NavLink>
+          <NavLink to="/shop">Shop all</NavLink>
           <Link to="/shop#brands">35 Houses</Link>
           <Link to="/#coffrets">Discovery sets</Link>
           <NavLink to="/quiz">Scent finder</NavLink>
@@ -257,15 +257,13 @@ function Layout() {
           <Link to="/account" aria-label="Your account">
             <UserRound size={20} />
           </Link>
-          <button
-            type="button"
-            className="icon header-bag-trigger"
+          <Link
+            to="/cart"
             aria-label={`Shopping bag, ${bagQuantity} items`}
-            onClick={() => openBag && openBag()}
           >
             <ShoppingBag size={20} />
             {bagQuantity > 0 && <i>{bagQuantity}</i>}
-          </button>
+          </Link>
           <button
             className="icon mobile-menu"
             aria-label="Toggle navigation"
@@ -313,7 +311,7 @@ function Layout() {
             Every bottle and travel atomizer is guaranteed 100% authentic, stored in our climate-controlled Singapore vault.
           </p>
           <Link className="text-link" to="/shop">
-            Explore the collection <ArrowUpRight size={14} />
+            Browse the catalog <ArrowUpRight size={14} />
           </Link>
         </div>
         <div className="footer-bottom">
