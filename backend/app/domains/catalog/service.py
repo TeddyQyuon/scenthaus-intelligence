@@ -140,7 +140,29 @@ def create_tenant_product(
         db.flush()
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(409, "SKU or product slug conflicts with an existing item") from exc
+        err_msg = str(getattr(exc, "orig", exc)).lower()
+        if "pkey" in err_msg or ("duplicate key" in err_msg and "id" in err_msg):
+            from ...database import sync_postgres_sequences
+
+            sync_postgres_sequences(db)
+            db.add(product)
+            db.flush()
+            created_variants = []
+            for v in data.variants:
+                variant = Variant(
+                    tenant_id=tenant.id,
+                    product_id=product.id,
+                    sku=v.sku,
+                    size_ml=v.size_ml,
+                    price=v.price,
+                    stock=v.stock,
+                    lead_time_weeks=v.lead_time_weeks,
+                )
+                db.add(variant)
+                created_variants.append(variant)
+            db.flush()
+        else:
+            raise HTTPException(409, "SKU or product slug conflicts with an existing item") from exc
 
     db.add(
         AuditLog(
@@ -440,7 +462,19 @@ def import_tenant_catalog_csv(
                 source_metadata={"imported_by": actor_id},
             )
             db.add(product)
-            db.flush()
+            try:
+                db.flush()
+            except IntegrityError as exc:
+                err_msg = str(getattr(exc, "orig", exc)).lower()
+                if "pkey" in err_msg or ("duplicate key" in err_msg and "id" in err_msg):
+                    db.rollback()
+                    from ...database import sync_postgres_sequences
+
+                    sync_postgres_sequences(db)
+                    db.add(product)
+                    db.flush()
+                else:
+                    raise
             products_by_slug[product.slug] = product
             products_created += 1
         else:
@@ -493,7 +527,20 @@ def import_tenant_catalog_csv(
                 variant.price = price
                 variant.stock = stock
 
-            db.flush()
+            try:
+                db.flush()
+            except IntegrityError as exc:
+                err_msg = str(getattr(exc, "orig", exc)).lower()
+                if "pkey" in err_msg or ("duplicate key" in err_msg and "id" in err_msg):
+                    db.rollback()
+                    from ...database import sync_postgres_sequences
+
+                    sync_postgres_sequences(db)
+                    if variant not in db:
+                        db.add(variant)
+                    db.flush()
+                else:
+                    raise
 
     db.add(
         AuditLog(

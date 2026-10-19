@@ -20,7 +20,7 @@ from sqlalchemy import delete, select
 
 from app.config import settings
 from app.core.keys import derive_hex_key, totp_fernet
-from app.database import SessionLocal
+from app.database import SessionLocal, sync_postgres_sequences
 from app.jobs.queue import enqueue_job, process_pending_jobs, register_task
 from app.main import app, requests
 from app.models import (
@@ -50,6 +50,9 @@ _CREATED_USER_IDS: list[str] = []
 @pytest.fixture(autouse=True)
 def _cleanup_multi_tenant_test_rows():
     _CREATED_USER_IDS.clear()
+    with SessionLocal() as db:
+        sync_postgres_sequences(db)
+        db.commit()
     yield
     with SessionLocal() as db:
         non_default_tenants = db.scalars(

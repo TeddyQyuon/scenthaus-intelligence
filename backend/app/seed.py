@@ -5,7 +5,7 @@ from pathlib import Path
 from argon2 import PasswordHasher
 from sqlalchemy import func, insert, select
 from .config import settings
-from .database import SessionLocal
+from .database import SessionLocal, sync_postgres_sequences
 from .models import (
     Product,
     Variant,
@@ -72,6 +72,8 @@ def seed() -> None:
                 role="admin",
             )
         )
+        db.commit()
+        sync_postgres_sequences(db)
         db.commit()
         result = {
             "simulated": True,
