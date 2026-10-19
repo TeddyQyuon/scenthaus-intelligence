@@ -118,7 +118,7 @@ describe("nonblocking storefront and safe quick add", () => {
   it("opens the slide-out shopping bag drawer with free shipping progress and discovery sets", async () => {
     render(<App />);
     await waitFor(() => expect(screen.getAllByText("Test scent").length).toBeGreaterThan(0));
-    expect(screen.getByRole("heading", { name: /Curated Discovery Sets/i })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Curated Discovery/i })).toBeTruthy();
     const bagButtons = screen.getAllByRole("button", { name: /Shopping bag/i });
     fireEvent.click(bagButtons[0]);
     expect(await screen.findByRole("dialog", { name: /Your Shopping Bag/i })).toBeTruthy();
