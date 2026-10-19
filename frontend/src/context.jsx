@@ -9,6 +9,9 @@ export function ShopProvider({ children }) {
     [toast, setToast] = useState(""),
     [consentBusy, setConsentBusy] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
+  const [bagOpen, setBagOpen] = useState(false);
+  const [freeSampleChoice, setFreeSampleChoice] = useState("aventus-2ml");
+  const [giftWrap, setGiftWrap] = useState(false);
   const [storeConfig, setStoreConfig] = useState({
     name: "SCENTHAUS",
     currency: "SGD",
@@ -133,6 +136,13 @@ export function ShopProvider({ children }) {
         track,
         notify: setToast,
         storeConfig,
+        bagOpen,
+        openBag: () => setBagOpen(true),
+        closeBag: () => setBagOpen(false),
+        freeSampleChoice,
+        setFreeSampleChoice,
+        giftWrap,
+        setGiftWrap,
       }}
     >
       {children}

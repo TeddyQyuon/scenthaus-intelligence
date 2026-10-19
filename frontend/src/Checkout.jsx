@@ -16,6 +16,15 @@ function ErrorNotice({ error }) {
 }
 
 export function OrderSummary({ order, title = "Your selection" }) {
+  const shop = useShop() || {};
+  const sampleLabel = shop.freeSampleChoice === "dior-sauvage-2ml" ? "Dior Sauvage EDP (2ml Vial)"
+    : shop.freeSampleChoice === "ysl-libre-2ml" ? "YSL Libre EDP (2ml Vial)"
+    : shop.freeSampleChoice === "tom-ford-oud-2ml" ? "Tom Ford Oud Wood (2ml Vial)"
+    : shop.freeSampleChoice === "creed-aventus-2ml" ? "Creed Aventus (2ml Vial)"
+    : "Curator's Mystery Niche Vial (2ml)";
+  const hasFreeSample = (order.subtotal_minor || 0) >= 18000;
+  const includeGiftWrap = shop.giftWrap !== false;
+
   return <aside className="checkout-summary" aria-label="Order summary">
     <h2>{title}</h2>
     <div className="checkout-items">
@@ -30,6 +39,12 @@ export function OrderSummary({ order, title = "Your selection" }) {
         <strong>{paymentMoney(item.item_total_minor)}</strong>
       </div>)}
     </div>
+    {(hasFreeSample || includeGiftWrap) && (
+      <div className="cart-perks-note" aria-label="Complimentary Atelier Perks">
+        {hasFreeSample && <div>✓ Complimentary Sample: <strong>{sampleLabel}</strong></div>}
+        {includeGiftWrap && <div>✓ Complimentary SCENTHAUS Linen Pouch &amp; Scent Blotter Card</div>}
+      </div>
+    )}
     <dl className="checkout-totals">
       <div><dt>Subtotal</dt><dd>{paymentMoney(order.subtotal_minor)}</dd></div>
       <div><dt>Standard delivery</dt><dd>{order.shipping_minor ? paymentMoney(order.shipping_minor) : "Complimentary"}</dd></div>
@@ -37,7 +52,7 @@ export function OrderSummary({ order, title = "Your selection" }) {
       <div><dt>Additional tax</dt><dd>{paymentMoney(order.tax_minor)}</dd></div>
       <div className="checkout-total"><dt>Total <small>SGD</small></dt><dd>{paymentMoney(order.total_minor)}</dd></div>
     </dl>
-    <p className="checkout-trust"><ShieldCheck size={18} /> Prices and availability verified by SCENTHAUS.</p>
+    <p className="checkout-trust"><ShieldCheck size={18} /> 100% Authentic · Prices and availability verified by SCENTHAUS.</p>
   </aside>;
 }
 

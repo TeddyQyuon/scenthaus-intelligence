@@ -4,13 +4,14 @@ import { createPortal } from "react-dom";
 import { Check, Minus, Plus, X } from "lucide-react";
 import { api, money, message } from "./api";
 import { useShop } from "./context";
+import { enrichProduct } from "./enrichment";
 
 export default function QuickAdd({ product, onClose, recommendationId }) {
-  const { add, cart, track } = useShop();
+  const { add, cart, track, openBag } = useShop();
   const dialog = useRef(null);
   const pending = useRef(false);
   const titleId = useId();
-  const [current, setCurrent] = useState(product);
+  const [current, setCurrent] = useState(() => enrichProduct(product));
   const [selected, setSelected] = useState(
     product.variants.length === 1 ? product.variants[0].id : null,
   );
@@ -44,7 +45,7 @@ export default function QuickAdd({ product, onClose, recommendationId }) {
       .get(`/products/${product.slug}`)
       .then((r) => {
         if (active) {
-          setCurrent(r.data);
+          setCurrent(enrichProduct(r.data));
           setAvailable(true);
         }
       })
@@ -99,14 +100,14 @@ export default function QuickAdd({ product, onClose, recommendationId }) {
         >
           <X size={22} />
         </button>
-        <p className="eyebrow">{added ? "IN YOUR BAG" : "QUICK ADD"}</p>
+        <p className="eyebrow">{added ? "IN YOUR BAG" : "SELECT BOTTLE SIZE"}</p>
         <div className="quick-add-product">
           <img src={current.image} alt={current.name} />
           <div>
             <p className="eyebrow">{current.brand}</p>
             <h2 id={titleId}>{current.name}</h2>
             <p className="metadata">
-              {current.category} · {current.concentration}
+              {current.category} · {current.display_concentration || current.concentration}
             </p>
           </div>
         </div>
@@ -116,7 +117,19 @@ export default function QuickAdd({ product, onClose, recommendationId }) {
               <Check size={20} /> Added {quantity} × {variant.size_ml}ml to your
               bag.
             </p>
-            <Link className="button wide" to="/cart" onClick={onClose}>
+            {openBag && (
+              <button
+                type="button"
+                className="button wide"
+                onClick={() => {
+                  dialog.current.close();
+                  openBag();
+                }}
+              >
+                Open shopping bag drawer
+              </button>
+            )}
+            <Link className="button outline wide" to="/cart" onClick={onClose}>
               View bag
             </Link>
             <button
