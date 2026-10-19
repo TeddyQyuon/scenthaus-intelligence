@@ -101,6 +101,29 @@ def upgrade() -> None:
                 )
             )
 
+        for seq_table in [
+            "products",
+            "variants",
+            "order_items",
+            "events",
+            "wishlists",
+            "cart_items",
+            "forecast_snapshots",
+            "audit_logs",
+        ]:
+            try:
+                bind.execute(
+                    sa.text(
+                        f"SELECT setval("
+                        f"pg_get_serial_sequence('{seq_table}', 'id'), "
+                        f"COALESCE((SELECT MAX(id) FROM \"{seq_table}\"), 1), "
+                        f"(SELECT MAX(id) IS NOT NULL FROM \"{seq_table}\")"
+                        f")"
+                    )
+                )
+            except Exception:
+                pass
+
 
 def downgrade() -> None:
     bind = op.get_bind()

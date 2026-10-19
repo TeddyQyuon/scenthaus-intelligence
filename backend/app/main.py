@@ -632,10 +632,6 @@ def personal_export(user=Depends(user_required), db=Depends(get_db)):
     }
 
 
-_catalog_cache = None
-_catalog_cache_time = 0
-
-
 @app.get("/products")
 def products(
     response: Response,
@@ -650,12 +646,7 @@ def products(
     sort: str = "featured",
     db=Depends(get_db),
 ):
-    global _catalog_cache, _catalog_cache_time
-    is_default = not any([q, category, brand, budget, size, gender, season]) and not in_stock and sort == "featured"
     response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
-    if is_default and _catalog_cache is not None and time.time() - _catalog_cache_time < 300:
-        return _catalog_cache
-
     rows = available(
         db,
         q=q,
@@ -674,27 +665,35 @@ def products(
         if sort == "price-high"
         else (lambda p: (not p["pinned"], p["id"]))
     )
-    brands = list(db.scalars(
-        select(Product.brand).where(
-            Product.hidden == False, Product.launch_date <= date.today(),
-            Product.id.in_(select(Variant.product_id)),
-        ).distinct().order_by(Product.brand)
-    ))
-    res = {
+    active_tid = db.info.get("tenant_id", DEFAULT_TENANT_ID)
+    brands = list(
+        db.scalars(
+            select(Product.brand)
+            .where(
+                Product.tenant_id == active_tid,
+                Product.hidden == False,
+                Product.launch_date <= date.today(),
+                Product.id.in_(
+                    select(Variant.product_id).where(Variant.tenant_id == active_tid)
+                ),
+            )
+            .distinct()
+            .order_by(Product.brand)
+        )
+    )
+    return {
         "products": rows,
         "brands": brands,
     }
-    if is_default:
-        _catalog_cache = res
-        _catalog_cache_time = time.time()
-    return res
 
 
 @app.get("/products/{slug}")
 def product(slug: str, response: Response, db=Depends(get_db)):
     response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
+    active_tid = db.info.get("tenant_id", DEFAULT_TENANT_ID)
     p = db.scalar(
         select(Product).where(
+            Product.tenant_id == active_tid,
             Product.slug == slug,
             Product.hidden == False,
             Product.launch_date <= date.today(),

@@ -3,6 +3,14 @@ from fastapi.testclient import TestClient
 from app.main import app, requests
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _sync_postgres_sequences():
+    from app.database import engine, sync_postgres_sequences
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as conn:
+            sync_postgres_sequences(conn)
+
+
 @pytest.fixture
 def client():
     requests.clear()
