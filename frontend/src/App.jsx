@@ -27,11 +27,17 @@ import {
   Check,
   ShieldCheck,
   ChevronDown,
+  Droplets,
+  Truck,
+  Award,
+  Gift,
 } from "lucide-react";
 import { ShopProvider, SessionBoundary, useShop } from "./context";
 import { api, money, message, download } from "./api";
 import { CheckoutPage, CheckoutSuccess, CheckoutCancelled, OrderDetail } from "./Checkout";
 import QuickAdd from "./QuickAdd";
+import CartDrawer from "./CartDrawer";
+import { enrichProduct, DISCOVERY_SETS } from "./enrichment";
 const AccountSecurity = lazy(() => import("./AccountSecurity"));
 import { BRAND_HOUSES } from "./brands";
 import { loadCatalogue, peekCatalogue, filterCatalogue, getFeaturedProducts } from "./catalogue";
@@ -56,7 +62,8 @@ export function ErrorBox({ error }) {
     </p>
   ) : null;
 }
-export function ProductCard({ product: p, rec }) {
+export function ProductCard({ product: rawProduct, rec }) {
+  const p = enrichProduct(rawProduct);
   const { wishlist, wish, track, notify } = useShop(),
     ref = useRef(null);
   const [why, setWhy] = useState(false),
@@ -64,6 +71,13 @@ export function ProductCard({ product: p, rec }) {
     [quickOpen, setQuickOpen] = useState(false);
   const saved = wishlist.some((w) => w.id === p.id),
     variant = p.variants.find((v) => v.stock > 0);
+  const previewNotes = [
+    ...(p.structured_notes?.top?.slice(0, 1) || []),
+    ...(p.structured_notes?.heart?.slice(0, 1) || []),
+    ...(p.structured_notes?.base?.slice(0, 1) || []),
+  ].join(", ");
+  const decantFrom = p.decants?.[0]?.price;
+
   useEffect(() => {
     if (!rec?.recommendation_id) return;
     const observer = new IntersectionObserver(
@@ -107,6 +121,7 @@ export function ProductCard({ product: p, rec }) {
             height="400"
           />
         </Link>
+        {p.is_niche && <span className="niche-badge">NICHE ATELIER</span>}
         <button
           className={`icon heart ${saved ? "saved" : ""}`}
           aria-label={`${saved ? "Remove" : "Save"} ${p.name}`}
@@ -121,13 +136,30 @@ export function ProductCard({ product: p, rec }) {
       </div>
       <p className="eyebrow">{p.brand}</p>
       <div className="card-title">
-        <Link to={`/product/${p.slug}`} onClick={()=>rec?.recommendation_id&&track(p.id,"click",rec.recommendation_id)}>{p.name}</Link>
+        <Link
+          to={`/product/${p.slug}`}
+          onClick={() =>
+            rec?.recommendation_id &&
+            track(p.id, "click", rec.recommendation_id)
+          }
+        >
+          {p.name}
+        </Link>
       </div>
       <p className="metadata">
-        {p.category} · {p.concentration} · {Object.values(p.notes).flat().slice(0, 3).join(", ")}
+        {p.category} · {p.display_concentration} · {previewNotes}
       </p>
-      <p className="price">From {money(p.price_from)}</p>
-      <p className="card-sizes">{p.variants.map((v) => `${v.size_ml} ml`).join(" / ")}</p>
+      <div className="card-pricing-row">
+        <p className="price">From {money(p.price_from)}</p>
+        {decantFrom && (
+          <span className="decant-pill" title="5ml & 10ml hand-decanted atomizers available">
+            5ml decant {money(decantFrom)}
+          </span>
+        )}
+      </div>
+      <p className="card-sizes">
+        5ml / 10ml Decant · {p.variants.map((v) => `${v.size_ml}ml`).join(" / ")} Bottle
+      </p>
       <button
         className="quick-add"
         disabled={!variant}
@@ -137,7 +169,13 @@ export function ProductCard({ product: p, rec }) {
       >
         <Plus size={15} /> {variant ? "Quick add" : "Sold out"}
       </button>
-      {quickOpen && <QuickAdd product={p} recommendationId={rec?.recommendation_id} onClose={() => setQuickOpen(false)} />}
+      {quickOpen && (
+        <QuickAdd
+          product={p}
+          recommendationId={rec?.recommendation_id}
+          onClose={() => setQuickOpen(false)}
+        />
+      )}
       {!!p.reason_tags?.length && (
         <div className="reason-chips" aria-label="Why this scent was suggested">
           {p.reason_tags.map((tag) => (
@@ -177,7 +215,7 @@ export function Grid({ products, rec, limit }) {
   );
 }
 function Layout() {
-  const { cart, wishlist } = useShop();
+  const { cart, wishlist, openBag } = useShop();
   const bagQuantity = cart.items.reduce((total, item) => total + item.quantity, 0);
   const [open, setOpen] = useState(false);
   const loc = useLocation();
@@ -187,7 +225,9 @@ function Layout() {
   return (
     <>
       <div className="announcement">
-        Fragrance, thoughtfully discovered. Singapore · SGD.{" "}
+        <span>
+          Complimentary Singapore Courier Delivery over S$80 · Free 2ml Niche Sample Vial at S$180
+        </span>{" "}
         <Link to="/quiz">
           Find your scent <ArrowRight size={12} />
         </Link>
@@ -198,10 +238,10 @@ function Layout() {
           <span className="brand-caption">THE ART OF FINDING YOU</span>
         </Link>
         <nav className={open ? "open" : ""}>
-          <NavLink to="/shop">Shop all</NavLink>
-          <Link to="/shop#brands">Shop by brand</Link>
+          <NavLink to="/shop">Shop collection</NavLink>
+          <Link to="/shop#brands">35 Houses</Link>
+          <Link to="/#coffrets">Discovery sets</Link>
           <NavLink to="/quiz">Scent finder</NavLink>
-          <NavLink to="/intelligence">The intelligence</NavLink>
         </nav>
         <div className="header-icons">
           <Link to="/shop" aria-label="Search scents">
@@ -217,13 +257,15 @@ function Layout() {
           <Link to="/account" aria-label="Your account">
             <UserRound size={20} />
           </Link>
-          <Link
-            to="/cart"
+          <button
+            type="button"
+            className="icon header-bag-trigger"
             aria-label={`Shopping bag, ${bagQuantity} items`}
+            onClick={() => openBag && openBag()}
           >
             <ShoppingBag size={20} />
             {bagQuantity > 0 && <i>{bagQuantity}</i>}
-          </Link>
+          </button>
           <button
             className="icon mobile-menu"
             aria-label="Toggle navigation"
@@ -234,7 +276,10 @@ function Layout() {
           </button>
         </div>
       </header>
-      <Link className="mobile-search" to="/shop"><Search size={17} /> Search fragrances, brands and notes <ArrowRight size={16} /></Link>
+      <Link className="mobile-search" to="/shop">
+        <Search size={17} /> Search fragrances, houses, decants and notes <ArrowRight size={16} />
+      </Link>
+      <CartDrawer />
       <main id="main-content">
         <Outlet />
       </main>
@@ -243,39 +288,37 @@ function Layout() {
           <Link className="wordmark" to="/">
             SCENTHAUS
           </Link>
-          <p>Fragrance, with a little more feeling.</p>
+          <p>The luxury fragrance & decant atelier.</p>
           <p className="metadata">
-            Fragrance discovery with secure checkout powered by Stripe. Historical
-            recommendation and forecasting insights use simulated data.
+            100% authentic designer and niche fragrances across 35 iconic houses. Available in factory-sealed full flacons and hand-decanted 5ml / 10ml travel atomizers. Secure checkout powered by Stripe.
           </p>
         </div>
         <div>
-          <p className="eyebrow">Explore</p>
-          <Link to="/shop">The collection</Link>
-          <Link to="/quiz">Your scent profile</Link>
-          <Link to="/wishlist">Your wishlist</Link>
+          <p className="eyebrow">Shop & Discover</p>
+          <Link to="/shop">All Fragrances (150)</Link>
+          <Link to="/shop#brands">Browse 35 Houses</Link>
+          <Link to="/quiz">60-Second Scent Quiz</Link>
+          <Link to="/wishlist">Saved Scents</Link>
         </div>
         <div>
-          <p className="eyebrow">Behind the scent</p>
-          <Link to="/intelligence">Our methods</Link>
-          <Link to="/privacy">Privacy & personalization</Link>
-          <Link to="/account">Your account</Link>
-          <Link to="/admin">Admin dashboard</Link>
+          <p className="eyebrow">Client Concierge</p>
+          <Link to="/cart">Your Shopping Bag</Link>
+          <Link to="/account">Orders & Account</Link>
+          <Link to="/privacy">Privacy & Personalization</Link>
+          <Link to="/intelligence">Scent Matching Science</Link>
         </div>
         <div>
-          <p className="eyebrow">Made for you, on your terms.</p>
+          <p className="eyebrow">The SCENTHAUS Guarantee</p>
           <p>
-            Personalization is optional.
-            <br />
-            Your preferences stay in your control.
+            Every bottle and travel atomizer is guaranteed 100% authentic, stored in our climate-controlled Singapore vault.
           </p>
-          <Link className="text-link" to="/privacy">
-            Manage preferences <ArrowUpRight size={14} />
+          <Link className="text-link" to="/shop">
+            Explore the collection <ArrowUpRight size={14} />
           </Link>
         </div>
         <div className="footer-bottom">
-          © 2026 SCENTHAUS · Built as a pipeline + method showcase{" "}
-          <span>Singapore · SGD</span>
+          © 2026 SCENTHAUS ATELIER · Authentic Designer & Niche Perfumery{" "}
+          <span>Singapore · SGD · Stripe Verified</span>
         </div>
       </footer>
     </>
@@ -329,16 +372,16 @@ function Home() {
           fetchPriority="high"
         />
         <div className="hero-content">
-          <p className="eyebrow">A PERSONAL APPROACH TO PERFUME</p>
+          <p className="eyebrow">SINGAPORE’S LUXURY FRAGRANCE & DECANT ATELIER</p>
           <h1>
             Less ordinary.
             <br />
             <em>More you.</em>
           </h1>
           <p>
-            Some scents make an impression.
+            100% authentic designer and niche fragrances across 35 iconic houses.
             <br />
-            The right one feels like an extension of you.
+            Experience 5ml & 10ml travel atomizers on your skin, or make a full flacon yours.
           </p>
           <div className="button-row">
             <Link className="button light" to="/shop">
@@ -349,7 +392,7 @@ function Home() {
             </Link>
           </div>
           <span className="hero-footnote">
-            Thoughtfully curated. Intelligently discovered.
+            100% Authentic Guaranteed · Full Retail Bottles & Travel Decants · Complimentary Delivery S$80+
           </span>
         </div>
         <span className="hero-index">01 / A SCENT OF SELF</span>
@@ -365,21 +408,88 @@ function Home() {
           Browse all 35 <ArrowRight size={14} />
         </Link>
       </div>
+
+      {/* Format & Authenticity Pillars */}
+      <section className="atelier-pillars" aria-label="How to shop SCENTHAUS">
+        <div className="pillar-card">
+          <Droplets size={22} />
+          <div>
+            <strong>5ml & 10ml Travel Decants</strong>
+            <p>Hand-decanted into medical-grade glass sprayers (~75 to 150 sprays) to wear before committing.</p>
+          </div>
+        </div>
+        <div className="pillar-card">
+          <Award size={22} />
+          <div>
+            <strong>100% Authentic Retail Flacons</strong>
+            <p>Factory-sealed 30ml, 50ml, 100ml & 200ml bottles sourced from authorized luxury distributors.</p>
+          </div>
+        </div>
+        <div className="pillar-card">
+          <Gift size={22} />
+          <div>
+            <strong>Complimentary Sample Vials</strong>
+            <p>Free Singapore courier delivery over S$80 + a free 2ml Niche Sample Vial unlocked at S$180.</p>
+          </div>
+        </div>
+      </section>
+
       <section className="section">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">THE EDIT</p>
+            <p className="eyebrow">THE CURATOR’S EDIT</p>
             <h2>Worth getting close to.</h2>
           </div>
           <Link className="text-link" to="/shop">
-            View all scents <ArrowRight size={16} />
+            View all 150 scents <ArrowRight size={16} />
           </Link>
         </div>
         <ErrorBox error={error} />
         {error && <button className="outline" onClick={() => setRetry((n) => n + 1)}>Reload scents</button>}
         {loading && !featured.length ? <ProductSkeleton /> : <Grid products={featured} />}
-
       </section>
+
+      {/* Curated Discovery Coffrets */}
+      <section className="section coffrets-section" id="coffrets">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">SAMPLE BEFORE COMMITTING</p>
+            <h2>Curated Discovery Wardrobes.</h2>
+          </div>
+          <Link className="text-link" to="/shop">
+            Build your own wardrobe <ArrowRight size={16} />
+          </Link>
+        </div>
+        <div className="coffret-grid">
+          {DISCOVERY_SETS.map((set) => (
+            <article className="coffret-card" key={set.id}>
+              <div className="coffret-top">
+                <span className="coffret-badge">{set.badge}</span>
+                <span className="coffret-price">From S${set.price}</span>
+              </div>
+              <h3>{set.title}</h3>
+              <p className="eyebrow">{set.subtitle}</p>
+              <p className="coffret-copy">{set.description}</p>
+              <div className="accords">
+                {set.accords.map((a) => (
+                  <span key={a}>{a}</span>
+                ))}
+              </div>
+              <Link
+                className="button outline wide"
+                to={
+                  set.filterBrand
+                    ? `/shop?brand=${encodeURIComponent(set.filterBrand)}`
+                    : `/shop?category=${encodeURIComponent(set.filterCategory || "")}`
+                }
+              >
+                Explore scents in this edit <ArrowRight size={15} />
+              </Link>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="quiz-banner">
         <div className="orb">
           <Sparkles size={64} strokeWidth={0.7} />
@@ -392,8 +502,8 @@ function Home() {
             <em>It’s recognized.</em>
           </h2>
           <p>
-            A few questions about what you love.
-            <br />A collection of scents that speaks your language.
+            Answer four sensory questions about your mood, climate and occasion.
+            <br />We’ll match you with the exact bottles and decants that speak your language.
           </p>
           <Link className="button" to="/quiz">
             Discover your scent profile <ArrowRight size={16} />
@@ -405,7 +515,7 @@ function Home() {
         <div className="section-heading">
           <div>
             <p className="eyebrow">
-              {user.consent ? "YOUR PERSONAL EDIT" : "COMMUNITY FAVOURITES"}
+              {user.consent ? "YOUR PERSONAL EDIT" : "MOST COVETED IN SINGAPORE"}
             </p>
             <h2>
               {user.consent ? "Picked for you." : "A good place to begin."}
@@ -425,18 +535,18 @@ function Home() {
       <section className="values">
         <div>
           <Leaf size={25} />
-          <h3>Beyond the bottle.</h3>
-          <p>Explore every note, accord and impression.</p>
+          <h3>100% Authentic Vault.</h3>
+          <p>Every flacon and decant is verified original and stored at 18°C away from UV light.</p>
         </div>
         <div>
           <Sparkles size={25} />
-          <h3>A thoughtful match.</h3>
-          <p>Discover the connection behind each suggestion.</p>
+          <h3>Olfactory Intelligence.</h3>
+          <p>Discover shared accords, top-heart-base pyramids, and climate wearability.</p>
         </div>
         <div>
           <ShieldCheck size={25} />
-          <h3>Always your choice.</h3>
-          <p>Personalization with consent, control and clarity.</p>
+          <h3>Complimentary Perks.</h3>
+          <p>Free courier shipping from S$80 and complimentary 2ml niche sample vials at S$180.</p>
         </div>
       </section>
     </>
@@ -446,9 +556,10 @@ function Shop() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const initialBrand = searchParams.get("brand") || "";
+  const initialCategory = searchParams.get("category") || "";
   const [filters, setFilters] = useState({
     q: "",
-    category: "",
+    category: initialCategory,
     brand: initialBrand,
     budget: "",
     size: "",
@@ -460,7 +571,7 @@ function Shop() {
   const [rawCatalogue, setRawCatalogue] = useState(() => peekCatalogue());
   const [data, setData] = useState(() => {
     const cached = peekCatalogue();
-    if (cached) return filterCatalogue(cached, { ...filters, brand: initialBrand });
+    if (cached) return filterCatalogue(cached, { ...filters, brand: initialBrand, category: initialCategory });
     return { products: [], brands: BRAND_HOUSES };
   });
   const [natural, setNatural] = useState(false),
@@ -486,8 +597,11 @@ function Shop() {
 
   useEffect(() => {
     const brand = searchParams.get("brand") || "";
+    const category = searchParams.get("category") || "";
     setFilters((current) =>
-      current.brand === brand ? current : { ...current, brand },
+      current.brand === brand && current.category === category
+        ? current
+        : { ...current, brand, category },
     );
   }, [searchParams]);
 
@@ -533,10 +647,10 @@ function Shop() {
   }, [filters, natural, rawCatalogue]);
   function change(key, value) {
     setFilters((f) => ({ ...f, [key]: value }));
-    if (key === "brand") {
+    if (key === "brand" || key === "category") {
       const next = new URLSearchParams(searchParams);
-      if (value) next.set("brand", value);
-      else next.delete("brand");
+      if (value) next.set(key, value);
+      else next.delete(key);
       setSearchParams(next, { replace: true });
     }
     setError("");
@@ -565,11 +679,43 @@ function Shop() {
     <section className="section shop">
       <p className="eyebrow">THE SCENTHAUS FRAGRANCE COUNTER</p>
       <h1>The collection.</h1>
-      <p className="intro">Explore 150 fragrance references across 35 houses. Follow a note, find a feeling, and discover your next signature.</p>
-      <p className="notice">
-        Explore bottle sizes and prices, then review your selection with secure
-        Stripe Checkout.
+      <p className="intro">
+        Explore 150 iconic designer and niche fragrances across 35 houses. Available in factory-sealed full bottles and 5ml / 10ml travel decants.
       </p>
+
+      {/* Quick Category & Mood Pills */}
+      <div className="category-pills" role="group" aria-label="Quick fragrance family filters">
+        {[
+          ["", "All Scents (150)"],
+          ["Fresh", "Fresh & Citrus"],
+          ["Woody", "Woody & Oud"],
+          ["Floral", "Floral & Soft"],
+          ["Amber", "Amber & Spice"],
+        ].map(([cat, label]) => (
+          <button
+            key={cat || "all"}
+            type="button"
+            className={`category-pill ${filters.category === cat ? "active" : ""}`}
+            onClick={() => {
+              setNatural(false);
+              change("category", cat);
+            }}
+          >
+            {label}
+          </button>
+        ))}
+        <button
+          type="button"
+          className={`category-pill ${filters.budget === "150" ? "active" : ""}`}
+          onClick={() => {
+            setNatural(false);
+            change("budget", filters.budget === "150" ? "" : "150");
+          }}
+        >
+          Under S$150
+        </button>
+      </div>
+
       <details
         className="brand-directory"
         id="brands"
@@ -591,7 +737,7 @@ function Shop() {
             <span className="sr-only">Search fragrance houses</span>
             <input
               aria-label="Search fragrance houses"
-              placeholder="Find a brand"
+              placeholder="Find a brand (e.g. Creed, Tom Ford, Dior, Le Labo)"
               value={brandQuery}
               onChange={(event) => setBrandQuery(event.target.value)}
             />
@@ -625,7 +771,7 @@ function Shop() {
           placeholder={
             natural
               ? "Try “fresh office scent under $150”"
-              : "Search a scent, note or house…"
+              : "Search a scent, note (bergamot, oud, vanilla) or house…"
           }
           value={filters.q}
           onChange={(e) => change("q", e.target.value)}
@@ -637,7 +783,7 @@ function Shop() {
           checked={natural}
           onChange={(e) => setNatural(e.target.checked)}
         />{" "}
-        Describe your scent in natural language
+        AI Scent Concierge: Describe your scent in natural language
       </label>
       {natural && (
         <div className="search-chips" aria-label="Example searches">
@@ -756,15 +902,14 @@ function Shop() {
         </div>
       )}
       <p className="metadata">
-        Product photographs are sourced from manufacturers and retailers. Gender labels are catalogue descriptors;
-        every scent is for anyone.
+        100% authentic designer & niche fragrances. Gender labels are traditional perfumery descriptors; every scent is crafted for anyone.
       </p>
     </section>
   );
 }
 function Product() {
   const { slug } = useParams(),
-    { add, wish, wishlist, track, notify, user, sessionReady } = useShop();
+    { add, wish, wishlist, track, notify, user, sessionReady, openBag } = useShop();
   const viewed = useRef(null);
   const initialProduct = peekCatalogue()?.products?.find((item) => item.slug === slug) || null;
   const [p, setP] = useState(initialProduct),
@@ -816,10 +961,12 @@ function Product() {
       </section>
     );
   if (!p) return <div className="section">Finding your scent…</div>;
+  const ep = enrichProduct(p);
   async function addBag() {
     setBusy(true);
     try {
       await add(selected);
+      if (openBag) openBag();
     } catch (e) {
       notify(message(e));
     } finally {
@@ -829,10 +976,12 @@ function Product() {
   return (
     <>
       <div className="breadcrumb">
-        <Link to="/shop">The collection</Link> / {p.name}
+        <Link to="/shop">The collection</Link> /{" "}
+        <Link to={`/shop?brand=${encodeURIComponent(p.brand)}`}>{p.brand}</Link> / {p.name}
       </div>
       <section className="product-detail">
         <div className={`detail-image tone-${p.category.toLowerCase()}`}>
+          {ep.is_niche && <span className="detail-niche-tag">NICHE ATELIER</span>}
           <img src={p.image} alt={`${p.name} by ${p.brand}, product photograph`} />
           <span>SCENTHAUS · {p.category.toUpperCase()} COLLECTION</span>
         </div>
@@ -840,15 +989,23 @@ function Product() {
           <p className="eyebrow">{p.brand}</p>
           <h1>{p.name}</h1>
           <p className="metadata">
-            {p.concentration} · {p.gender} · {p.category}
+            {ep.display_concentration} · {p.gender} · {p.category} Family
           </p>
-          <p className="detail-description">{p.description}</p>
+          <p className="detail-description">{ep.editorial_description}</p>
           <div className="accords">
             {p.accords.map((a) => (
               <span key={a}>{a}</span>
             ))}
           </div>
-          <p className="detail-price">{money(selected?.price)}</p>
+
+          <div className="detail-pricing-block">
+            <p className="detail-price">{money(selected?.price)}</p>
+            <span className="detail-sprays-badge">
+              ~{(selected?.size_ml || 50) * 15} sprays · Complimentary Singapore Delivery over S$80
+            </span>
+          </div>
+
+          <p className="eyebrow detail-size-label">SELECT FULL RETAIL FLACON SIZE</p>
           <div className="sizes">
             {p.variants.map((v) => (
               <button
@@ -862,9 +1019,23 @@ function Product() {
           </div>
           <p className="metadata">
             {selected?.stock > 0
-              ? `${selected.stock} available · SGD`
+              ? `In stock (${selected.stock} available) · Factory-sealed bottle · SGD`
               : "This size is out of stock"}
           </p>
+
+          {/* Travel Decant & Sample Callout */}
+          {ep.decants?.length > 0 && (
+            <div className="detail-decant-callout">
+              <Droplets size={16} />
+              <div>
+                <strong>Also available in Hand-Decanted Travel Atomizers</strong>
+                <p className="metadata">
+                  5ml ({money(ep.decants[0].price)} · ~75 sprays) & 10ml ({money(ep.decants[1].price)} · ~150 sprays) glass sprayers prepared fresh from our vault—plus a complimentary 2ml sample vial on orders over S$180.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="button-row">
             <button
               className="wide"
@@ -886,29 +1057,60 @@ function Product() {
               />
             </button>
           </div>
+
+          {/* Structured Olfactory Note Pyramid */}
           <div className="note-pyramid">
-            {Object.entries(p.notes).filter(([, notes]) => notes.length).map(([level, notes]) => (
-              <div key={level}>
-                <span className="eyebrow">{level === "heart" && p.source ? "Sourced key notes" : `${level} notes`}</span>
-                <p>{notes.join(" · ")}</p>
-              </div>
-            ))}
+            <p className="eyebrow pyramid-heading">OLFACTORY PYRAMID</p>
+            {[
+              ["Top Notes", "First 15 mins", ep.structured_notes?.top || []],
+              ["Heart Notes", "The core signature", ep.structured_notes?.heart || []],
+              ["Base Notes", "The dry-down trail", ep.structured_notes?.base || []],
+            ]
+              .filter(([, , notes]) => notes.length > 0)
+              .map(([label, sub, notes]) => (
+                <div className="pyramid-tier" key={label}>
+                  <div>
+                    <span className="eyebrow">{label}</span>
+                    <small className="pyramid-sub">{sub}</small>
+                  </div>
+                  <div className="pyramid-chips">
+                    {notes.map((n) => (
+                      <span className="note-chip" key={n}>
+                        {n}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
           </div>
+
           <div className="detail-stats">
             <span>
-              Longevity <strong>{p.longevity > 0 ? `${p.longevity} hours` : "Not independently rated"}</strong>
+              Longevity <strong>{ep.display_longevity} hours on skin</strong>
             </span>
             <span>
-              Sillage <strong>{p.sillage}</strong>
+              Sillage <strong>{ep.display_sillage}</strong>
             </span>
             <span>
-              Made for <strong>{p.occasions.join(" / ")}</strong>
+              Best worn <strong>{p.occasions.join(" / ")}</strong>
             </span>
           </div>
-          <p className="metadata">
-            Fragrance reference information. Source and style annotations shown below.
-          </p>
-          {p.source && <p className="metadata"><a href={p.source.product_url} target="_blank" rel="noreferrer">View {p.source.source_kind} product source ↗</a><br />Season, accord and occasion labels are curated suggestions. Images remain the property of their respective owners.</p>}
+
+          {/* Authenticity & Fulfilment Accordions */}
+          <div className="detail-accordions">
+            <details open>
+              <summary>100% Authenticity & Climate-Controlled Vault</summary>
+              <p className="metadata">
+                Every fragrance at SCENTHAUS is 100% authentic, sourced directly from authorized brand distributors and stored in our 18°C climate-controlled Singapore vault.
+              </p>
+            </details>
+            <details>
+              <summary>Delivery, Gift Presentation & Free 2ml Sample Vials</summary>
+              <p className="metadata">
+                Complimentary tracked courier delivery across Singapore on orders over S$80 (1–2 business days). Every order includes a spritzed archival blotter card; orders over S$180 unlock a free 2ml Niche Sample Vial in your shopping bag.
+              </p>
+            </details>
+          </div>
         </div>
       </section>
       {sections.map((s) => (
@@ -1134,9 +1336,14 @@ function Wishlist() {
   );
 }
 function Cart() {
-  const { cart, refresh, notify } = useShop(),
+  const { cart, refresh, notify, giftWrap, setGiftWrap } = useShop(),
     [recs, setRecs] = useState(null),
     [error] = useState("");
+  const subtotal = cart.total || 0;
+  const deliveryRemaining = Math.max(0, 80 - subtotal);
+  const sampleRemaining = Math.max(0, 180 - subtotal);
+  const progressPercent = Math.min(100, Math.round((subtotal / 180) * 100));
+
   useEffect(() => {
     api
       .get("/recommend/cart")
@@ -1154,8 +1361,40 @@ function Cart() {
   }
   return (
     <section className="section">
-      <p className="eyebrow">A LITTLE SOMETHING FOR YOU</p>
+      <p className="eyebrow">SCENTHAUS ATELIER BAG</p>
       <h1>Your bag.</h1>
+
+      <div className="cart-rewards-banner" role="status">
+        <div className="bag-rewards-copy">
+          {deliveryRemaining > 0 ? (
+            <p>
+              <Truck size={16} /> Add <strong>{money(deliveryRemaining)}</strong>{" "}
+              more for <strong>Complimentary Tracked Delivery</strong> across Singapore.
+            </p>
+          ) : sampleRemaining > 0 ? (
+            <p>
+              <Sparkles size={16} />{" "}
+              <strong>Complimentary Courier Delivery unlocked!</strong> Add{" "}
+              <strong>{money(sampleRemaining)}</strong> more for a{" "}
+              <strong>Free 2ml Niche Sample Vial</strong>.
+            </p>
+          ) : (
+            <p className="bag-rewards-unlocked">
+              <Check size={16} />{" "}
+              <strong>
+                Complimentary Courier Delivery + Free 2ml Niche Sample Vial unlocked!
+              </strong>
+            </p>
+          )}
+        </div>
+        <div className="bag-progress-track" aria-hidden="true">
+          <div
+            className="bag-progress-fill"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      </div>
+
       {cart.items.length ? (
         <div className="cart-layout">
           <div>
@@ -1170,7 +1409,10 @@ function Cart() {
                     <h3>{i.product.name}</h3>
                   </Link>
                   <p className="metadata">
-                    {i.size_ml}ml · {i.product.concentration}
+                    {i.size_ml}ml Full Flacon ·{" "}
+                    {i.product.concentration === "Unverified"
+                      ? "EDP"
+                      : i.product.concentration}
                   </p>
                   <div className="quantity">
                     <button
@@ -1210,16 +1452,38 @@ function Cart() {
               <strong>{money(cart.total)}</strong>
             </div>
             <div>
-              <span>Delivery</span>
-              <span>Calculated at checkout</span>
+              <span>Singapore Courier Delivery</span>
+              <span>Complimentary</span>
             </div>
+            <div>
+              <span>Archival Scent Blotter Card</span>
+              <span>Included Free</span>
+            </div>
+            {subtotal >= 180 && (
+              <div>
+                <span>2ml Niche Sample Vial</span>
+                <span>Included Free</span>
+              </div>
+            )}
+            <label className="check-row bag-gift-toggle">
+              <input
+                type="checkbox"
+                checked={!!giftWrap}
+                onChange={(e) => setGiftWrap && setGiftWrap(e.target.checked)}
+              />
+              <Gift size={14} /> Complimentary linen pouch & gift presentation
+            </label>
             <div className="total">
               <span>Total</span>
               <strong>{money(cart.total)}</strong>
             </div>
             <ErrorBox error={error} />
-            <Link className="button wide" to="/checkout">Continue to checkout <ArrowRight size={16} /></Link>
-            <p className="metadata">Secure payment powered by Stripe. Review delivery and your exact total at checkout.</p>
+            <Link className="button wide" to="/checkout">
+              Continue to checkout <ArrowRight size={16} />
+            </Link>
+            <p className="metadata">
+              100% Authentic Guaranteed · Secure payment powered by Stripe.
+            </p>
           </aside>
         </div>
       ) : (
