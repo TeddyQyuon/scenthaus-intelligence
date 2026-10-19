@@ -42,9 +42,11 @@ class PasswordChange(Proof):
     new_password: str = Field(min_length=10, max_length=128)
 
 
-def cipher() -> Fernet:
-    key = hashlib.sha256(("scenthaus-totp-v1:" + settings.secret_key).encode()).digest()
-    return Fernet(base64.urlsafe_b64encode(key))
+from .core.keys import totp_fernet
+
+
+def cipher():
+    return totp_fernet()
 
 
 def record_event(

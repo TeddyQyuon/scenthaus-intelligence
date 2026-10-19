@@ -1093,10 +1093,810 @@ export default function Admin() {
             )}
           </>
         )}
+        <MerchantSaaSConsole notify={notify} />
       </main>
     </div>
   );
 }
 function Shield() {
   return <Activity size={36} />;
+}
+
+function MerchantSaaSConsole({ notify }) {
+  const [isOpen, setIsOpen] = useState(true);
+  const [subTab, setSubTab] = useState("catalog");
+  const [products, setProducts] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [consoleError, setConsoleError] = useState("");
+  const [consoleSuccess, setConsoleSuccess] = useState("");
+
+  const [newProduct, setNewProduct] = useState({
+    name: "",
+    brand: "SCENTHAUS",
+    category: "Woody",
+    concentration: "EDP",
+    gender: "Unisex",
+    description: "",
+    sku: "",
+    sizeMl: 50,
+    price: 120,
+    stock: 20,
+  });
+  const [submittingProduct, setSubmittingProduct] = useState(false);
+
+  const [addVariantProduct, setAddVariantProduct] = useState(null);
+  const [variantForm, setVariantForm] = useState({
+    sku: "",
+    sizeMl: 100,
+    price: 180,
+    stock: 15,
+  });
+
+  const [includeSimulated, setIncludeSimulated] = useState(true);
+  const [orderStatusFilter, setOrderStatusFilter] = useState("");
+  const [shippingModalOrder, setShippingModalOrder] = useState(null);
+  const [shippingCarrier, setShippingCarrier] = useState("SingPost");
+  const [shippingTracking, setShippingTracking] = useState("");
+  const [refundModalOrder, setRefundModalOrder] = useState(null);
+  const [refundReason, setRefundReason] = useState("Customer requested return");
+  const [refundRestock, setRefundRestock] = useState(true);
+
+  async function fetchProducts() {
+    setLoadingProducts(true);
+    try {
+      const res = await api.get("/tenant/catalog/products", {
+        params: { include_hidden: true },
+      });
+      setProducts(res.data?.products || []);
+    } catch {
+      // In dev / unmocked test environments, keep graceful fallback
+    } finally {
+      setLoadingProducts(false);
+    }
+  }
+
+  async function fetchOrders() {
+    setLoadingOrders(true);
+    try {
+      const params = { include_simulated: includeSimulated };
+      if (orderStatusFilter) params.status = orderStatusFilter;
+      const res = await api.get("/tenant/orders", { params });
+      setOrders(res.data?.orders || []);
+    } catch {
+      // In dev / unmocked test environments, keep graceful fallback
+    } finally {
+      setLoadingOrders(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchProducts();
+    fetchOrders();
+  }, [includeSimulated, orderStatusFilter]);
+
+  async function handleCreateProduct(e) {
+    e.preventDefault();
+    setSubmittingProduct(true);
+    setConsoleError("");
+    setConsoleSuccess("");
+    try {
+      const payload = {
+        name: newProduct.name.trim(),
+        brand: newProduct.brand.trim(),
+        category: newProduct.category,
+        concentration: newProduct.concentration,
+        gender: newProduct.gender,
+        description: newProduct.description.trim(),
+        variants: [
+          {
+            sku: newProduct.sku.trim(),
+            size_ml: parseInt(newProduct.sizeMl, 10),
+            price: parseFloat(newProduct.price),
+            stock: parseInt(newProduct.stock, 10),
+            lead_time_weeks: 2,
+          },
+        ],
+      };
+      await api.post("/tenant/catalog/products", payload);
+      setConsoleSuccess(`Product "${payload.name}" created successfully`);
+      notify?.(`Product "${payload.name}" created successfully`);
+      setNewProduct({
+        name: "",
+        brand: "SCENTHAUS",
+        category: "Woody",
+        concentration: "EDP",
+        gender: "Unisex",
+        description: "",
+        sku: "",
+        sizeMl: 50,
+        price: 120,
+        stock: 20,
+      });
+      fetchProducts();
+    } catch (err) {
+      setConsoleError(message(err));
+    } finally {
+      setSubmittingProduct(false);
+    }
+  }
+
+  async function handleAddVariant(e) {
+    e.preventDefault();
+    if (!addVariantProduct) return;
+    setConsoleError("");
+    setConsoleSuccess("");
+    try {
+      const payload = {
+        sku: variantForm.sku.trim(),
+        size_ml: parseInt(variantForm.sizeMl, 10),
+        price: parseFloat(variantForm.price),
+        stock: parseInt(variantForm.stock, 10),
+        lead_time_weeks: 2,
+      };
+      await api.post(
+        `/tenant/catalog/products/${addVariantProduct.id}/variants`,
+        payload
+      );
+      setConsoleSuccess(
+        `Variant ${payload.sku} added to ${addVariantProduct.name}`
+      );
+      notify?.(`Variant ${payload.sku} added to ${addVariantProduct.name}`);
+      setAddVariantProduct(null);
+      fetchProducts();
+    } catch (err) {
+      setConsoleError(message(err));
+    }
+  }
+
+  async function handleTransition(orderId, targetStatus, extras = {}) {
+    setConsoleError("");
+    setConsoleSuccess("");
+    try {
+      const payload = {
+        target_status: targetStatus,
+        ...extras,
+      };
+      await api.post(`/tenant/orders/${orderId}/transition`, payload);
+      setConsoleSuccess(`Order transitioned to ${targetStatus}`);
+      notify?.(`Order transitioned to ${targetStatus}`);
+      fetchOrders();
+      setShippingModalOrder(null);
+      setRefundModalOrder(null);
+    } catch (err) {
+      setConsoleError(message(err));
+    }
+  }
+
+  function getAvailableTransitions(status) {
+    const transitions = {
+      pending_payment: ["paid", "cancelled"],
+      confirmed: ["fulfilling", "shipped", "refunded", "cancelled"],
+      paid: ["fulfilling", "shipped", "refunded", "cancelled"],
+      fulfilling: ["shipped", "refunded", "cancelled"],
+      shipped: ["delivered", "refunded"],
+      delivered: ["refunded"],
+      partially_refunded: ["refunded"],
+    };
+    return transitions[status] || [];
+  }
+
+  return (
+    <section className="panel merchant-console" aria-label="Merchant SaaS Console">
+      <div className="merchant-console-header">
+        <div>
+          <p className="eyebrow">MULTI-TENANT STOREFRONT OPERATIONS</p>
+          <h2 style={{ margin: "4px 0" }}>Merchant SaaS Console</h2>
+          <p className="metadata">Manage your tenant catalog, SKU variants, and order fulfillment lifecycle.</p>
+        </div>
+        <button
+          type="button"
+          className="outline"
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          {isOpen ? "Collapse Console" : "Expand Console"}
+        </button>
+      </div>
+
+      {consoleError && (
+        <div className="connection-notice" role="alert" style={{ margin: "16px 0" }}>
+          <span>{consoleError}</span>
+          <button type="button" onClick={() => setConsoleError("")}>Dismiss</button>
+        </div>
+      )}
+      {consoleSuccess && (
+        <div className="explanation" style={{ margin: "16px 0", background: "#e8efe1", color: "#364e24" }}>
+          {consoleSuccess}
+        </div>
+      )}
+
+      {isOpen && (
+        <>
+          <div className="merchant-nav" role="tablist">
+            <button
+              type="button"
+              className={subTab === "catalog" ? "active" : ""}
+              onClick={() => setSubTab("catalog")}
+            >
+              Catalog & Products ({products.length})
+            </button>
+            <button
+              type="button"
+              className={subTab === "orders" ? "active" : ""}
+              onClick={() => setSubTab("orders")}
+            >
+              Orders & Fulfilment ({orders.length})
+            </button>
+          </div>
+
+          {subTab === "catalog" && (
+            <div>
+              <div className="panel" style={{ background: "#fbfbfa", marginBottom: "28px" }}>
+                <h3>Create New Tenant Product</h3>
+                <p className="metadata" style={{ marginBottom: "18px" }}>
+                  Add a fragrance to your store catalog via <code>POST /tenant/catalog/products</code>.
+                </p>
+                <form onSubmit={handleCreateProduct}>
+                  <div className="merchant-form-grid">
+                    <label>
+                      Product Name *
+                      <input
+                        type="text"
+                        required
+                        minLength={2}
+                        maxLength={100}
+                        value={newProduct.name}
+                        onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                        placeholder="e.g. Amber Reverie"
+                      />
+                    </label>
+                    <label>
+                      Brand *
+                      <input
+                        type="text"
+                        required
+                        minLength={2}
+                        maxLength={100}
+                        value={newProduct.brand}
+                        onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })}
+                        placeholder="e.g. SCENTHAUS"
+                      />
+                    </label>
+                    <label>
+                      Category
+                      <select
+                        value={newProduct.category}
+                        onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                      >
+                        <option value="Woody">Woody</option>
+                        <option value="Fresh">Fresh</option>
+                        <option value="Floral">Floral</option>
+                        <option value="Amber">Amber</option>
+                        <option value="Oriental">Oriental</option>
+                      </select>
+                    </label>
+                    <label>
+                      Concentration
+                      <select
+                        value={newProduct.concentration}
+                        onChange={(e) => setNewProduct({ ...newProduct, concentration: e.target.value })}
+                      >
+                        <option value="EDP">EDP</option>
+                        <option value="EDT">EDT</option>
+                        <option value="Parfum">Parfum</option>
+                        <option value="Cologne">Cologne</option>
+                        <option value="Unverified">Unverified</option>
+                      </select>
+                    </label>
+                    <label>
+                      Gender
+                      <select
+                        value={newProduct.gender}
+                        onChange={(e) => setNewProduct({ ...newProduct, gender: e.target.value })}
+                      >
+                        <option value="Unisex">Unisex</option>
+                        <option value="Feminine">Feminine</option>
+                        <option value="Masculine">Masculine</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <label style={{ display: "block", marginBottom: "16px", fontSize: "13px", fontWeight: 500 }}>
+                    Description * (min 10 characters)
+                    <textarea
+                      required
+                      minLength={10}
+                      maxLength={1000}
+                      rows={3}
+                      style={{ width: "100%", padding: "12px", border: "1px solid #d0d3c7", marginTop: "6px", fontFamily: "inherit" }}
+                      value={newProduct.description}
+                      onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                      placeholder="Sensual warm notes of golden amber, labdanum, and soft Bourbon vanilla..."
+                    />
+                  </label>
+
+                  <div style={{ background: "#f2f3ee", padding: "16px", marginBottom: "18px" }}>
+                    <p className="eyebrow" style={{ marginBottom: "10px" }}>INITIAL SKU VARIANT</p>
+                    <div className="merchant-form-grid" style={{ marginBottom: 0 }}>
+                      <label>
+                        SKU Code *
+                        <input
+                          type="text"
+                          required
+                          minLength={2}
+                          maxLength={40}
+                          value={newProduct.sku}
+                          onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
+                          placeholder="e.g. SCH-AMB-50"
+                        />
+                      </label>
+                      <label>
+                        Size (ml) *
+                        <input
+                          type="number"
+                          min={1}
+                          max={1000}
+                          required
+                          value={newProduct.sizeMl}
+                          onChange={(e) => setNewProduct({ ...newProduct, sizeMl: e.target.value })}
+                        />
+                      </label>
+                      <label>
+                        Price (SGD) *
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          required
+                          value={newProduct.price}
+                          onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+                        />
+                      </label>
+                      <label>
+                        Stock *
+                        <input
+                          type="number"
+                          min={0}
+                          required
+                          value={newProduct.stock}
+                          onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <button type="submit" disabled={submittingProduct}>
+                    {submittingProduct ? "Creating Product…" : "Create Product"}
+                  </button>
+                </form>
+              </div>
+
+              <div>
+                <div className="section-heading">
+                  <h3>Tenant Catalog ({products.length} products)</h3>
+                  <button type="button" className="outline" onClick={fetchProducts} disabled={loadingProducts}>
+                    {loadingProducts ? "Loading…" : "Refresh Catalog"}
+                  </button>
+                </div>
+                {products.length === 0 ? (
+                  <p className="metadata">No products in tenant catalog.</p>
+                ) : (
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Product</th>
+                          <th>Category</th>
+                          <th>Concentration</th>
+                          <th>Variants / Sizes</th>
+                          <th>Price range</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {products.map((p) => (
+                          <tr key={p.id}>
+                            <td>
+                              <strong>{p.name}</strong>
+                              <p className="metadata">{p.brand}</p>
+                            </td>
+                            <td>{p.category}</td>
+                            <td>{p.concentration}</td>
+                            <td>
+                              {p.variants?.map((v) => (
+                                <span key={v.id || v.sku} style={{ display: "inline-block", background: "#f0f1ea", padding: "2px 6px", margin: "2px", fontSize: "11px" }}>
+                                  {v.size_ml}ml ({v.sku}) · {money(v.price)} · Stock: {v.stock}
+                                </span>
+                              ))}
+                            </td>
+                            <td>{money(p.price_from)}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className="outline"
+                                style={{ minHeight: "32px", padding: "6px 12px", fontSize: "12px" }}
+                                onClick={() => {
+                                  setAddVariantProduct(p);
+                                  setVariantForm({
+                                    sku: `${p.slug || "prod"}-100`,
+                                    sizeMl: 100,
+                                    price: (p.price_from * 1.5).toFixed(2),
+                                    stock: 15,
+                                  });
+                                }}
+                              >
+                                + Add Variant
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {subTab === "orders" && (
+            <div>
+              <div className="section-heading">
+                <div>
+                  <h3>Tenant Orders</h3>
+                  <p className="metadata">Manage fulfillment, shipping dispatch, delivery confirmation, and refunds.</p>
+                </div>
+                <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                  <label className="check-row" style={{ fontSize: "12px" }}>
+                    <input
+                      type="checkbox"
+                      checked={includeSimulated}
+                      onChange={(e) => setIncludeSimulated(e.target.checked)}
+                    />
+                    Include simulated orders
+                  </label>
+                  <select
+                    value={orderStatusFilter}
+                    onChange={(e) => setOrderStatusFilter(e.target.value)}
+                    style={{ minHeight: "38px", padding: "6px 12px", fontSize: "12px" }}
+                  >
+                    <option value="">All statuses</option>
+                    <option value="pending_payment">Pending payment</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="paid">Paid</option>
+                    <option value="fulfilling">Fulfilling</option>
+                    <option value="shipped">Shipped</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="refunded">Refunded</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                  <button type="button" className="outline" onClick={fetchOrders} disabled={loadingOrders}>
+                    {loadingOrders ? "Loading…" : "Refresh Orders"}
+                  </button>
+                </div>
+              </div>
+
+              {orders.length === 0 ? (
+                <p className="metadata">No orders found.</p>
+              ) : (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Order #</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Status</th>
+                        <th>Total</th>
+                        <th>Fulfillment</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orders.map((order) => {
+                        const available = getAvailableTransitions(order.status);
+                        const fulfilment = order.delivery_address?.fulfilment;
+                        return (
+                          <tr key={order.id}>
+                            <td>
+                              <strong>{order.order_number}</strong>
+                              <p className="metadata" style={{ fontSize: "10px" }}>{order.id.slice(0, 8)}</p>
+                            </td>
+                            <td>
+                              <span className="metadata">
+                                {order.created_at ? new Date(order.created_at).toLocaleDateString() : "—"}
+                              </span>
+                            </td>
+                            <td>
+                              <div>{order.customer_name || "Guest"}</div>
+                              <div className="metadata">{order.customer_email || "—"}</div>
+                            </td>
+                            <td>
+                              <span className={`status-badge ${order.status}`}>
+                                {order.status}
+                              </span>
+                              <div className="metadata" style={{ marginTop: "4px" }}>
+                                Pay: {order.payment_status}
+                              </div>
+                            </td>
+                            <td>
+                              <strong>{money(order.total)}</strong>
+                              <p className="metadata">{order.currency}</p>
+                            </td>
+                            <td>
+                              {fulfilment ? (
+                                <div style={{ fontSize: "11px" }}>
+                                  <div><strong>{fulfilment.carrier}</strong></div>
+                                  <div className="metadata">{fulfilment.tracking_number}</div>
+                                </div>
+                              ) : (
+                                <span className="metadata">—</span>
+                              )}
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                                {available.includes("fulfilling") && (
+                                  <button
+                                    type="button"
+                                    className="outline"
+                                    style={{ minHeight: "30px", padding: "4px 8px", fontSize: "11px" }}
+                                    onClick={() => handleTransition(order.id, "fulfilling")}
+                                  >
+                                    Mark Fulfilling
+                                  </button>
+                                )}
+                                {available.includes("shipped") && (
+                                  <button
+                                    type="button"
+                                    className="outline"
+                                    style={{ minHeight: "30px", padding: "4px 8px", fontSize: "11px" }}
+                                    onClick={() => {
+                                      setShippingModalOrder(order);
+                                      setShippingCarrier("SingPost");
+                                      setShippingTracking("");
+                                    }}
+                                  >
+                                    Ship…
+                                  </button>
+                                )}
+                                {available.includes("delivered") && (
+                                  <button
+                                    type="button"
+                                    className="outline"
+                                    style={{ minHeight: "30px", padding: "4px 8px", fontSize: "11px" }}
+                                    onClick={() => handleTransition(order.id, "delivered")}
+                                  >
+                                    Mark Delivered
+                                  </button>
+                                )}
+                                {available.includes("refunded") && (
+                                  <button
+                                    type="button"
+                                    className="outline"
+                                    style={{ minHeight: "30px", padding: "4px 8px", fontSize: "11px" }}
+                                    onClick={() => {
+                                      setRefundModalOrder(order);
+                                      setRefundReason("Customer return");
+                                      setRefundRestock(true);
+                                    }}
+                                  >
+                                    Refund…
+                                  </button>
+                                )}
+                                {available.includes("cancelled") && (
+                                  <button
+                                    type="button"
+                                    className="outline"
+                                    style={{ minHeight: "30px", padding: "4px 8px", fontSize: "11px" }}
+                                    onClick={() => handleTransition(order.id, "cancelled", { reason: "Merchant cancelled" })}
+                                  >
+                                    Cancel
+                                  </button>
+                                )}
+                                {available.includes("paid") && (
+                                  <button
+                                    type="button"
+                                    className="outline"
+                                    style={{ minHeight: "30px", padding: "4px 8px", fontSize: "11px" }}
+                                    onClick={() => handleTransition(order.id, "paid")}
+                                  >
+                                    Mark Paid
+                                  </button>
+                                )}
+                                {available.length === 0 && (
+                                  <span className="metadata">Completed</span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Shipping Modal */}
+          {shippingModalOrder && (
+            <div className="merchant-modal" role="dialog" aria-modal="true">
+              <div className="merchant-modal-box">
+                <h3>Ship Order {shippingModalOrder.order_number}</h3>
+                <p className="metadata" style={{ margin: "8px 0 16px" }}>
+                  Provide shipping carrier and tracking number to notify customer and mark order shipped.
+                </p>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleTransition(shippingModalOrder.id, "shipped", {
+                      carrier: shippingCarrier,
+                      tracking_number: shippingTracking,
+                    });
+                  }}
+                >
+                  <label style={{ display: "block", marginBottom: "12px", fontSize: "13px", fontWeight: 500 }}>
+                    Carrier *
+                    <input
+                      type="text"
+                      required
+                      value={shippingCarrier}
+                      onChange={(e) => setShippingCarrier(e.target.value)}
+                      placeholder="e.g. SingPost, DHL, FedEx"
+                      style={{ width: "100%", marginTop: "4px" }}
+                    />
+                  </label>
+                  <label style={{ display: "block", marginBottom: "20px", fontSize: "13px", fontWeight: 500 }}>
+                    Tracking Number *
+                    <input
+                      type="text"
+                      required
+                      value={shippingTracking}
+                      onChange={(e) => setShippingTracking(e.target.value)}
+                      placeholder="e.g. SG123456789"
+                      style={{ width: "100%", marginTop: "4px" }}
+                    />
+                  </label>
+                  <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+                    <button
+                      type="button"
+                      className="outline"
+                      onClick={() => setShippingModalOrder(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button type="submit">Confirm Dispatch</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Refund Modal */}
+          {refundModalOrder && (
+            <div className="merchant-modal" role="dialog" aria-modal="true">
+              <div className="merchant-modal-box">
+                <h3>Refund Order {refundModalOrder.order_number}</h3>
+                <p className="metadata" style={{ margin: "8px 0 16px" }}>
+                  Record refund and optionally return inventory items back to stock.
+                </p>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleTransition(refundModalOrder.id, "refunded", {
+                      reason: refundReason,
+                      restock: refundRestock,
+                    });
+                  }}
+                >
+                  <label style={{ display: "block", marginBottom: "12px", fontSize: "13px", fontWeight: 500 }}>
+                    Refund Reason
+                    <input
+                      type="text"
+                      value={refundReason}
+                      onChange={(e) => setRefundReason(e.target.value)}
+                      placeholder="e.g. Customer return"
+                      style={{ width: "100%", marginTop: "4px" }}
+                    />
+                  </label>
+                  <label className="check-row" style={{ display: "flex", alignItems: "center", margin: "14px 0 20px" }}>
+                    <input
+                      type="checkbox"
+                      checked={refundRestock}
+                      onChange={(e) => setRefundRestock(e.target.checked)}
+                    />
+                    Restock order items back into inventory
+                  </label>
+                  <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+                    <button
+                      type="button"
+                      className="outline"
+                      onClick={() => setRefundModalOrder(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button type="submit">Process Refund</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Add Variant Modal */}
+          {addVariantProduct && (
+            <div className="merchant-modal" role="dialog" aria-modal="true">
+              <div className="merchant-modal-box">
+                <h3>Add Variant to {addVariantProduct.name}</h3>
+                <p className="metadata" style={{ margin: "8px 0 16px" }}>
+                  Create an additional SKU size and price for this fragrance.
+                </p>
+                <form onSubmit={handleAddVariant}>
+                  <label style={{ display: "block", marginBottom: "12px", fontSize: "13px", fontWeight: 500 }}>
+                    SKU Code *
+                    <input
+                      type="text"
+                      required
+                      minLength={2}
+                      maxLength={40}
+                      value={variantForm.sku}
+                      onChange={(e) => setVariantForm({ ...variantForm, sku: e.target.value })}
+                      placeholder="e.g. SCH-PROD-100"
+                      style={{ width: "100%", marginTop: "4px" }}
+                    />
+                  </label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginBottom: "20px" }}>
+                    <label style={{ fontSize: "13px", fontWeight: 500 }}>
+                      Size (ml) *
+                      <input
+                        type="number"
+                        min={1}
+                        max={1000}
+                        required
+                        value={variantForm.sizeMl}
+                        onChange={(e) => setVariantForm({ ...variantForm, sizeMl: e.target.value })}
+                        style={{ width: "100%", marginTop: "4px" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: "13px", fontWeight: 500 }}>
+                      Price (SGD) *
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        required
+                        value={variantForm.price}
+                        onChange={(e) => setVariantForm({ ...variantForm, price: e.target.value })}
+                        style={{ width: "100%", marginTop: "4px" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: "13px", fontWeight: 500 }}>
+                      Stock *
+                      <input
+                        type="number"
+                        min={0}
+                        required
+                        value={variantForm.stock}
+                        onChange={(e) => setVariantForm({ ...variantForm, stock: e.target.value })}
+                        style={{ width: "100%", marginTop: "4px" }}
+                      />
+                    </label>
+                  </div>
+                  <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+                    <button
+                      type="button"
+                      className="outline"
+                      onClick={() => setAddVariantProduct(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button type="submit">Add Variant</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
 }

@@ -83,8 +83,20 @@ def verify_catalog(db):
             )
             variant_id += 1
 
-    products = {row.id: row for row in db.scalars(select(Product))}
-    variants = {row.id: row for row in db.scalars(select(Variant))}
+    from .tenancy.constants import DEFAULT_TENANT_ID
+
+    products = {
+        row.id: row
+        for row in db.scalars(
+            select(Product).where(Product.tenant_id == DEFAULT_TENANT_ID)
+        )
+    }
+    variants = {
+        row.id: row
+        for row in db.scalars(
+            select(Variant).where(Variant.tenant_id == DEFAULT_TENANT_ID)
+        )
+    }
     product_mismatches = {
         product_id
         for product_id in set(products) | set(expected_products)
@@ -217,8 +229,9 @@ def initialize():
         alembic.set_main_option("script_location", str(root / "alembic"))
         command.upgrade(alembic, "head")
         seed()
-        with SessionLocal() as db:
-            verify_catalog(db)
+        if settings.demo_mode:
+            with SessionLocal() as db:
+                verify_catalog(db)
 
         model = store.get()
         if model is not None:

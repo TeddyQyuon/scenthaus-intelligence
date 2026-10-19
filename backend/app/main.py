@@ -27,6 +27,15 @@ from .ml.serving import store
 from .catalog import ACCORDS
 from .account_security import router as security_router, check_rate_limit, record_event, verify_factor
 from .checkout import router as checkout_router, public_order
+from .tenancy.constants import DEFAULT_TENANT_ID
+from .tenancy.router import router as tenancy_router
+from .domains.catalog.router import router as catalog_router
+from .domains.customers.router import router as customers_router
+from .orders.state_machine import router as orders_router
+from .payments.connect import router as connect_router
+from .intelligence.tiered_engine import router as intelligence_router
+from .compliance.gdpr import router as compliance_router
+from . import notifications as _notifications  # noqa: F401
 
 
 @asynccontextmanager
@@ -45,12 +54,19 @@ app = FastAPI(
 )
 app.include_router(security_router)
 app.include_router(checkout_router)
+app.include_router(tenancy_router)
+app.include_router(catalog_router)
+app.include_router(customers_router)
+app.include_router(orders_router)
+app.include_router(connect_router)
+app.include_router(intelligence_router)
+app.include_router(compliance_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "X-CSRF-Token"],
+    allow_headers=["Content-Type", "X-CSRF-Token", "X-Tenant-ID", "X-Tenant-Slug"],
 )
 latencies = deque(maxlen=5000)
 requests = defaultdict(deque)
@@ -156,13 +172,22 @@ def available(
     brand=None,
     q=None,
 ):
+    active_tid = db.info.get("tenant_id", DEFAULT_TENANT_ID)
     products = db.scalars(
         select(Product)
-        .where(Product.hidden == False, Product.launch_date <= date.today())
+        .where(
+            Product.tenant_id == active_tid,
+            Product.hidden == False,
+            Product.launch_date <= date.today(),
+        )
         .order_by(Product.id)
     ).all()
     variants_by_product = defaultdict(list)
-    for variant in db.scalars(select(Variant).order_by(Variant.size_ml)):
+    for variant in db.scalars(
+        select(Variant)
+        .where(Variant.tenant_id == active_tid)
+        .order_by(Variant.size_ml)
+    ):
         variants_by_product[variant.product_id].append(variant)
     out = []
     for p in products:

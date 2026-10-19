@@ -9,6 +9,13 @@ export function ShopProvider({ children }) {
     [toast, setToast] = useState(""),
     [consentBusy, setConsentBusy] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
+  const [storeConfig, setStoreConfig] = useState({
+    name: "SCENTHAUS",
+    currency: "SGD",
+    country: "SG",
+    is_demo: true,
+    theme: {},
+  });
   const connection = useRef(null);
   const mutations = useRef(new Set());
   const cartRef = useRef(cart);
@@ -40,6 +47,27 @@ export function ShopProvider({ children }) {
   }
   useEffect(() => {
     init().catch(() => {});
+  }, []);
+  useEffect(() => {
+    api
+      .get("/storefront/config")
+      .then((res) => {
+        const data = res?.data;
+        if (data && typeof data === "object") {
+          if (data.name || data.currency || data.is_demo !== undefined || data.theme) {
+            setStoreConfig((prev) => ({ ...prev, ...data }));
+            if (data.theme && typeof data.theme === "object") {
+              Object.entries(data.theme).forEach(([key, val]) => {
+                if (key && typeof val === "string" && typeof document !== "undefined" && document.documentElement?.style?.setProperty) {
+                  const prop = key.startsWith("--") ? key : `--${key}`;
+                  document.documentElement.style.setProperty(prop, val);
+                }
+              });
+            }
+          }
+        }
+      })
+      .catch(() => {});
   }, []);
   useEffect(() => {
     if (!toast) return;
@@ -104,6 +132,7 @@ export function ShopProvider({ children }) {
         consentBusy,
         track,
         notify: setToast,
+        storeConfig,
       }}
     >
       {children}
