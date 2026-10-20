@@ -843,16 +843,50 @@ footer > div:not(:first-child) > a {
   display: inline-flex;
   align-items: center;
   border: 1px solid #cfd7c2;
+  border-radius: 4px;
+  background: #fff;
+  overflow: hidden;
+  height: 38px;
 }
-.quantity span {
-  width: 25px;
+.quantity span,
+.quantity output {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  padding: 0 4px;
   text-align: center;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink, #191919);
 }
+.quantity button,
+.quantity button.icon,
 .quantity .icon {
-  min-height: 30px;
-  min-width: 30px;
-  padding: 7px;
+  background: transparent;
+  color: var(--ink, #191919);
+  border: 0;
+  min-height: 36px;
+  min-width: 36px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 0;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+.quantity button:hover:not(:disabled),
+.quantity button.icon:hover:not(:disabled) {
+  background: #f0f1ec;
+}
+.quantity button:disabled,
+.quantity button.icon:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+  background: transparent;
 }
 .cart-price {
   margin-left: auto;
@@ -2352,12 +2386,64 @@ body:has(.quick-dialog[open]) { overflow: hidden; }
 .quick-add-product h2 { font-family: var(--font-display); font-size: 26px; line-height: 1.25; margin: 8px 0; }
 .quick-add-sizes { display: flex; flex-wrap: wrap; gap: 10px; padding: 0; border: 0; margin: 24px 0; }
 .quick-add-sizes legend { font-weight: 600; margin-bottom: 12px; }
-.quick-add-sizes label { position: relative; display: grid; min-width: 105px; gap: 5px; padding: 12px; border: 1px solid #d8d8d8; border-radius: 6px; cursor: pointer; }
-.quick-add-sizes label.selected { border-color: #191919; background: #f3f2ef; }
-.quick-add-sizes label.unavailable { opacity: .45; cursor: not-allowed; }
-.quick-add-sizes input { width: 16px; height: 16px; margin: 0 0 5px; accent-color: #191919; }
-.quick-add-sizes small { font-size: 12px; }
+.quick-add-sizes label {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 105px;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid #d8d8d8;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.quick-add-sizes label:hover:not(.unavailable):not(.selected) {
+  border-color: #a0a0a0;
+  background: #fafaf8;
+}
+.quick-add-sizes label:focus-within {
+  outline: 2px solid var(--olive, #4f5d42);
+  outline-offset: 2px;
+}
+.quick-add-sizes label.selected {
+  border-color: #191919;
+  background: #f4f3ef;
+  box-shadow: 0 0 0 1px #191919;
+}
+.quick-add-sizes label.unavailable {
+  opacity: .45;
+  cursor: not-allowed;
+  background: #fafafa;
+}
+.quick-add-sizes input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  pointer-events: none;
+}
+.quick-add-sizes input:focus {
+  outline: none;
+}
+.quick-add-sizes label span {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.quick-add-sizes label small {
+  font-size: 12px;
+  color: #666;
+}
+.quick-add-sizes label.selected small {
+  color: #191919;
+}
 .quick-add-quantity, .quick-add-total { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 20px 0; }
+.quick-add-quantity > span { font-weight: 500; font-size: 14px; }
 .quick-add-total { border-top: 1px solid #eee; padding-top: 20px; }
 .quick-add-success p { display: flex; align-items: center; gap: 10px; }
 .quick-add-success .wide { margin-top: 12px; }
@@ -2367,7 +2453,7 @@ body:has(.quick-dialog[open]) { overflow: hidden; }
   .quick-add-content { padding: 25px 20px max(24px, env(safe-area-inset-bottom)); }
   .quick-add-product { grid-template-columns: 75px 1fr; gap: 16px; }
   .quick-add-product img { height: 105px; }
-  .quick-add-sizes label { min-width: 88px; flex: 1; }
+  .quick-add-sizes label { min-width: 88px; flex: 1; padding: 12px 10px; }
 }
 .checkout-page { max-width: 1240px; margin-inline: auto; }
 .checkout-back { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 28px; font-size: 14px; }
