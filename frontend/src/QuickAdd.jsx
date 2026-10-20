@@ -12,16 +12,21 @@ export default function QuickAdd({ product, onClose, recommendationId }) {
   const pending = useRef(false);
   const titleId = useId();
   const [current, setCurrent] = useState(() => enrichProduct(product));
+  const inStockVariant =
+    product.variants?.find((v) => v.stock > 0) || product.variants?.[0];
   const [selected, setSelected] = useState(
-    product.variants.length === 1 ? product.variants[0].id : null,
+    product.variants?.length === 1
+      ? product.variants[0].id
+      : (inStockVariant?.id ?? null),
   );
   const [quantity, setQuantity] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [available, setAvailable] = useState(false);
+  const hasVariants = Boolean(product.variants && product.variants.length > 0);
+  const [loading, setLoading] = useState(!hasVariants);
+  const [available, setAvailable] = useState(hasVariants);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [added, setAdded] = useState(false);
-  const variant = current.variants.find((v) => v.id === selected);
+  const variant = current.variants?.find((v) => v.id === selected);
   const existing =
     cart.items.find((item) => item.variant_id === selected)?.quantity || 0;
   const maximum = variant
@@ -50,7 +55,7 @@ export default function QuickAdd({ product, onClose, recommendationId }) {
         }
       })
       .catch((e) => {
-        if (active) setError(message(e));
+        if (active && !hasVariants) setError(message(e));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -58,7 +63,7 @@ export default function QuickAdd({ product, onClose, recommendationId }) {
     return () => {
       active = false;
     };
-  }, [product.slug]);
+  }, [product.slug, hasVariants]);
 
   async function submit(e) {
     e.preventDefault();
@@ -170,20 +175,22 @@ export default function QuickAdd({ product, onClose, recommendationId }) {
               <div className="quantity">
                 <button
                   type="button"
+                  className="icon"
                   aria-label="Decrease quick-add quantity"
                   disabled={busy || quantity <= 1}
                   onClick={() => setQuantity((q) => q - 1)}
                 >
-                  <Minus size={16} />
+                  <Minus size={15} />
                 </button>
                 <output aria-label="Quick-add quantity">{quantity}</output>
                 <button
                   type="button"
+                  className="icon"
                   aria-label="Increase quick-add quantity"
                   disabled={busy || loading || quantity >= maximum}
                   onClick={() => setQuantity((q) => q + 1)}
                 >
-                  <Plus size={16} />
+                  <Plus size={15} />
                 </button>
               </div>
             </div>
@@ -214,12 +221,16 @@ export default function QuickAdd({ product, onClose, recommendationId }) {
                 !available || loading || busy || !variant || quantity > maximum
               }
             >
-              {loading
-                ? "Checking availability…"
-                : busy
-                  ? "Adding…"
-                  : "Add to bag"}
-              <Plus size={17} />
+              {busy ? (
+                "Adding…"
+              ) : loading ? (
+                "Checking availability…"
+              ) : (
+                <>
+                  Add to bag
+                  <Plus size={17} />
+                </>
+              )}
             </button>
             <Link
               className="why"
