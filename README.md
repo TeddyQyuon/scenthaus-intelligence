@@ -146,3 +146,17 @@ announces result updates, and explains when natural-language search controls the
 results. Mobile filter controls use a two-column grid. Wishlist state is exposed
 to assistive technology and shopping controls have larger touch targets.
 Frontend production build and the 15 existing unit tests pass for this change.
+
+### Storefront refresh — 4 November 2026
+
+The storefront adds an editorial ivory/sage theme, scent-family discovery cards,
+a native keyboard-accessible search dialog, URL-backed collection filters,
+mobile filter disclosure and 24-at-a-time browsing. Motion uses CSS transforms
+and a single route-level intersection observer, respecting reduced-motion
+preferences. Fonts are served locally with swap rendering and their OFL licenses.
+
+Local product photographs have generated 320px/640px WebP alternatives. Regenerate
+with `python scripts/optimize_storefront_images.py` (Pillow required). Original
+photographs remain available. Checkout code and the search panel load on demand.
+Run `npm --prefix frontend run test:unit` and `npm --prefix frontend run build`.
+See `reports/storefront-refresh-2026-11-04.md` for measured sizes and verification.

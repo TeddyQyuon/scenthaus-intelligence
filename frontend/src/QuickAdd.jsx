@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { Check, Minus, Plus, X } from "lucide-react";
 import { api, money, message } from "./api";
+import ProductImage from "./ProductImage";
 import { useShop } from "./context";
 
 export default function QuickAdd({ product, onClose, recommendationId }) {
@@ -101,7 +102,7 @@ export default function QuickAdd({ product, onClose, recommendationId }) {
         </button>
         <p className="eyebrow">{added ? "IN YOUR BAG" : "QUICK ADD"}</p>
         <div className="quick-add-product">
-          <img src={current.image} alt={current.name} />
+          <ProductImage src={current.image} alt={current.name} width="100" height="130" sizes="100px" />
           <div>
             <p className="eyebrow">{current.brand}</p>
             <h2 id={titleId}>{current.name}</h2>
