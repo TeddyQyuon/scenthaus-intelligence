@@ -37,7 +37,7 @@ marked gzip. These are asset/build measurements, not field Core Web Vitals.
 | All 320px responsive WebP images | — | 1,087,154 bytes (95.5% smaller) |
 | All 640px responsive WebP images | — | 2,996,266 bytes (87.6% smaller) |
 | Initial collection cards | 150 | 24 |
-| Initial application JS | 388.52 kB / 125.90 kB gzip | 381.06 kB / 123.93 kB gzip |
+| Initial application JS | 388.52 kB / 125.90 kB gzip | 381.07 kB / 123.94 kB gzip |
 | Stylesheet | 47.80 kB / 11.42 kB gzip | 62.14 kB / 14.35 kB gzip |
 | HTML | 1.13 kB | 0.68 kB |
 
@@ -60,5 +60,33 @@ screens. All 150 catalogue photographs have both responsive alternatives.
 
 ## Release verification
 
-Pending hosted build and browser verification. No live payment is required for
-this visual and browsing update.
+Production source: `98caf5e534df11d039aafdbe4806a59e007cb702`.
+Vercel deployment: `dpl_DukU1LwfVewK88zcBLo7johbrQb2`, READY.
+Public alias: https://scenthaus-intelligence.vercel.app/ assigned to that deployment.
+
+Verified in the cloud browser on the public domain:
+
+- Refreshed homepage, four family entry points, local font rendering and product images.
+- Header search for “Oud Wood” returned one matching fragrance; the results link
+  navigated to `/shop?q=Oud%20Wood` with one product.
+- Quick add checked live stock, selected 50ml at S$296.00, added exactly one
+  bottle and displayed the correct confirmation.
+- Bag showed 50ml, quantity one and S$296.00. The lazy-loaded checkout form
+  showed the same item and total in Stripe test mode. No payment was submitted.
+- The temporary item was removed, and the bag returned to zero items.
+- Default collection rendered 24 of 150, then 48 of 150 after Show More.
+- Woody filtering produced nine cards, all tagged Woody, at `?category=Woody`.
+- Product detail rendered the responsive 640px WebP image with its size controls
+  and correct sold-out state.
+- No application errors were found in the browser console. A deployment-scoped
+  scan for error/fatal runtime logs returned no matches.
+
+Local same-origin iframe checks at a 390px outer width verified the phone
+homepage, full-screen search, mobile account navigation and filter disclosure.
+The iframe content width and scroll width were both 375px, with no horizontal
+page overflow. This is responsive browser QA, not a physical-device test.
+
+The first 24 product images total 3,871,537 bytes in their original formats and
+409,916 bytes at 640px WebP (89.4% smaller). Field Core Web Vitals were not measured.
+The existing backend build retrained the model bundle and took roughly 12 minutes;
+no backend source or merchant/payment configuration changed.
