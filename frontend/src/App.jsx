@@ -30,8 +30,14 @@ import {
 } from "lucide-react";
 import { ShopProvider, SessionBoundary, useShop } from "./context";
 import { api, money, message, download } from "./api";
-import { CheckoutPage, CheckoutSuccess, CheckoutCancelled, OrderDetail } from "./Checkout";
+const CheckoutPage = lazy(() => import("./Checkout").then((module) => ({ default: module.CheckoutPage })));
+const CheckoutSuccess = lazy(() => import("./Checkout").then((module) => ({ default: module.CheckoutSuccess })));
+const CheckoutCancelled = lazy(() => import("./Checkout").then((module) => ({ default: module.CheckoutCancelled })));
+const OrderDetail = lazy(() => import("./Checkout").then((module) => ({ default: module.OrderDetail })));
 import QuickAdd from "./QuickAdd";
+import ProductImage from "./ProductImage";
+import { useReveals } from "./motion";
+const SearchPanel = lazy(() => import("./SearchPanel"));
 const AccountSecurity = lazy(() => import("./AccountSecurity"));
 import { BRAND_HOUSES } from "./brands";
 import { loadCatalogue, peekCatalogue, filterCatalogue, getFeaturedProducts } from "./catalogue";
@@ -41,7 +47,9 @@ function Scroll() {
   useEffect(() => {
     if (hash) {
       window.requestAnimationFrame(() => {
-        document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView();
+        try {
+          document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView();
+        } catch { /* Ignore malformed URL fragments. */ }
       });
     } else {
       window.scrollTo(0, 0);
@@ -98,7 +106,7 @@ export function ProductCard({ product: p, rec }) {
             track(p.id, "click", rec.recommendation_id)
           }
         >
-          <img
+          <ProductImage
             src={p.image}
             alt={`${p.name} by ${p.brand} — product photograph`}
             loading="lazy"
@@ -124,7 +132,8 @@ export function ProductCard({ product: p, rec }) {
         <Link to={`/product/${p.slug}`} onClick={()=>rec?.recommendation_id&&track(p.id,"click",rec.recommendation_id)}>{p.name}</Link>
       </div>
       <p className="metadata">
-        {p.category} · {p.concentration} · {Object.values(p.notes).flat().slice(0, 3).join(", ")}
+        {[p.category, p.concentration !== "Unverified" && p.concentration,
+          Object.values(p.notes || {}).flat().slice(0, 3).join(", ")].filter(Boolean).join(" · ")}
       </p>
       <p className="price">From {money(p.price_from)}</p>
       <p className="card-sizes">{p.variants.map((v) => `${v.size_ml} ml`).join(" / ")}</p>
@@ -180,12 +189,22 @@ function Layout() {
   const { cart, wishlist } = useShop();
   const bagQuantity = cart.items.reduce((total, item) => total + item.quantity, 0);
   const [open, setOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const loc = useLocation();
+  useReveals(loc.pathname);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event) => { if (event.key === "Escape") setOpen(false); };
+    document.addEventListener("keydown", close);
+    return () => document.removeEventListener("keydown", close);
+  }, [open]);
   useEffect(() => {
     setOpen(false);
+    setSearchOpen(false);
   }, [loc.pathname, loc.search, loc.hash]);
   return (
     <>
+      <a className="skip-link" href="#main-content">Skip to content</a>
       <div className="announcement">
         Fragrance, thoughtfully discovered. Singapore · SGD.{" "}
         <Link to="/quiz">
@@ -197,16 +216,17 @@ function Layout() {
           <span className="wordmark">SCENTHAUS</span>
           <span className="brand-caption">THE ART OF FINDING YOU</span>
         </Link>
-        <nav className={open ? "open" : ""}>
+        <nav id="main-navigation" aria-label="Main navigation" className={open ? "open" : ""}>
           <NavLink to="/shop">Shop all</NavLink>
           <Link to="/shop#brands">Shop by brand</Link>
           <NavLink to="/quiz">Scent finder</NavLink>
           <NavLink to="/intelligence">The intelligence</NavLink>
+          <Link className="mobile-account" to="/account">Your account</Link>
         </nav>
         <div className="header-icons">
-          <Link to="/shop" aria-label="Search scents">
+          <button className="icon search-trigger" aria-label="Search scents" aria-haspopup="dialog" onClick={() => setSearchOpen(true)}>
             <Search size={20} />
-          </Link>
+          </button>
           <Link
             to="/wishlist"
             aria-label={`Wishlist, ${wishlist.length} scents`}
@@ -228,15 +248,22 @@ function Layout() {
             className="icon mobile-menu"
             aria-label="Toggle navigation"
             aria-expanded={open}
+            aria-controls="main-navigation"
             onClick={() => setOpen(!open)}
           >
             {open ? <X /> : <Menu />}
           </button>
         </div>
       </header>
-      <Link className="mobile-search" to="/shop"><Search size={17} /> Search fragrances, brands and notes <ArrowRight size={16} /></Link>
+      <button className="mobile-search" aria-haspopup="dialog" onClick={() => setSearchOpen(true)}><Search size={17} /> Search fragrances, brands and notes <ArrowRight size={16} /></button>
+      <nav className="collection-nav" aria-label="Explore fragrances">
+        <Link to="/shop">All fragrances</Link>
+        {["Fresh", "Woody", "Floral", "Amber"].map((family) => <Link key={family} to={`/shop?category=${family}`}>{family}</Link>)}
+        <Link className="collection-nav-finder" to="/quiz"><Sparkles size={13} /> Find your signature</Link>
+      </nav>
+      {searchOpen && <Suspense fallback={null}><SearchPanel onClose={() => setSearchOpen(false)} /></Suspense>}
       <main id="main-content">
-        <Outlet />
+        <Suspense fallback={<div className="section" role="status">Opening your scent space…</div>}><Outlet /></Suspense>
       </main>
       <footer>
         <div>
@@ -245,8 +272,8 @@ function Layout() {
           </Link>
           <p>Fragrance, with a little more feeling.</p>
           <p className="metadata">
-            Fragrance discovery with secure checkout powered by Stripe. Historical
-            recommendation and forecasting insights use simulated data.
+            A fragrance discovery portfolio. Catalogue prices, stock and historical
+            insights are simulated; authenticity and availability are not verified.
           </p>
         </div>
         <div>
@@ -325,6 +352,9 @@ function Home() {
       <section className="hero">
         <img
           src="/images/hero.webp"
+          srcSet="/images/hero-mobile.webp 800w, /images/hero.webp 1600w"
+          sizes="100vw"
+          width="1600" height="900"
           alt="Amber fragrance bottles on dark sculptural stone"
           fetchPriority="high"
         />
@@ -365,7 +395,25 @@ function Home() {
           Browse all 35 <ArrowRight size={14} />
         </Link>
       </div>
-      <section className="section">
+      <section className="section family-section">
+        <div className="section-heading">
+          <div><p className="eyebrow">LET YOUR SENSES LEAD</p><h2>Find your kind of scent.</h2></div>
+          <span className="family-caption">A feeling. A note. A new beginning.</span>
+        </div>
+        <div className="family-grid">
+          {[
+            ["Fresh", "Bright, clean & full of possibility.", "/images/products/001-3bb5b8cca9.png", "01"],
+            ["Woody", "Grounded, textured & quietly bold.", "/images/products/023-ead3ede997.png", "02"],
+            ["Floral", "Soft petals. An expressive soul.", "/images/products/009-58fe5a319e.png", "03"],
+            ["Amber", "Warm, enveloping & a little intriguing.", "/images/products/024-0e36761c2c.png", "04"],
+          ].map(([family, copy, image, index]) => <Link className={`family-card family-${family.toLowerCase()}`} key={family} to={`/shop?category=${family}`}>
+            <div className="family-card-top"><span>{index} / THE SCENT FAMILIES</span><ArrowUpRight size={20} /></div>
+            <div className="family-bottle"><ProductImage src={image} alt="" loading="lazy" width="220" height="220" /></div>
+            <div><h3>{family}</h3><p>{copy}</p></div>
+          </Link>)}
+        </div>
+      </section>
+      <section className="section edit-section">
         <div className="section-heading">
           <div>
             <p className="eyebrow">THE EDIT</p>
@@ -445,22 +493,18 @@ function Home() {
 function Shop() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
-  const initialBrand = searchParams.get("brand") || "";
-  const [filters, setFilters] = useState({
-    q: "",
-    category: "",
-    brand: initialBrand,
-    budget: "",
-    size: "",
-    gender: "",
-    season: "",
-    in_stock: false,
-    sort: "featured",
+  const readFilters = () => ({
+    ...Object.fromEntries(["q", "category", "brand", "budget", "size", "gender", "season"].map((key) => [key, searchParams.get(key) || ""])),
+    in_stock: searchParams.get("in_stock") === "true",
+    sort: searchParams.get("sort") || "featured",
   });
+  const [filters, setFilters] = useState(readFilters);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(24);
   const [rawCatalogue, setRawCatalogue] = useState(() => peekCatalogue());
   const [data, setData] = useState(() => {
     const cached = peekCatalogue();
-    if (cached) return filterCatalogue(cached, { ...filters, brand: initialBrand });
+    if (cached) return filterCatalogue(cached, filters);
     return { products: [], brands: BRAND_HOUSES };
   });
   const [natural, setNatural] = useState(false),
@@ -485,10 +529,7 @@ function Shop() {
   }, []);
 
   useEffect(() => {
-    const brand = searchParams.get("brand") || "";
-    setFilters((current) =>
-      current.brand === brand ? current : { ...current, brand },
-    );
+    setFilters(readFilters());
   }, [searchParams]);
 
   useEffect(() => {
@@ -531,14 +572,13 @@ function Shop() {
         .finally(() => active && setLoading(false));
     }
   }, [filters, natural, rawCatalogue]);
+  useEffect(() => { setVisibleCount(24); }, [filters, natural]);
   function change(key, value) {
     setFilters((f) => ({ ...f, [key]: value }));
-    if (key === "brand") {
-      const next = new URLSearchParams(searchParams);
-      if (value) next.set("brand", value);
-      else next.delete("brand");
-      setSearchParams(next, { replace: true });
-    }
+    const next = new URLSearchParams(searchParams);
+    if (value && !(key === "sort" && value === "featured")) next.set(key, String(value));
+    else next.delete(key);
+    setSearchParams(next, { replace: true });
     setError("");
   }
   function resetFilters() {
@@ -563,13 +603,13 @@ function Shop() {
   );
   return (
     <section className="section shop">
-      <p className="eyebrow">THE SCENTHAUS FRAGRANCE COUNTER</p>
+      <div className="shop-heading"><div><p className="eyebrow">THE SCENTHAUS FRAGRANCE COUNTER</p>
       <h1>The collection.</h1>
-      <p className="intro">Explore 150 fragrance references across 35 houses. Follow a note, find a feeling, and discover your next signature.</p>
-      <p className="notice">
-        Explore bottle sizes and prices, then review your selection with secure
-        Stripe Checkout.
-      </p>
+      <p className="intro">Follow a note. Find a feeling. Discover your next signature across 35 fragrance houses.</p></div>
+      <Link className="text-link" to="/quiz"><Sparkles size={16} /> Need a little guidance?</Link></div>
+      <div className="family-tabs" aria-label="Browse by scent family">
+        {["", "Fresh", "Woody", "Floral", "Amber"].map((family) => <button key={family} className={filters.category === family ? "selected" : ""} aria-pressed={filters.category === family} disabled={natural && !!filters.q} onClick={() => change("category", family)}>{family || "All scents"}</button>)}
+      </div>
       <details
         className="brand-directory"
         id="brands"
@@ -665,7 +705,7 @@ function Shop() {
                   sort: "featured",
                 }));
                 setError("");
-                setSearchParams({}, { replace: true });
+                setSearchParams({ q: query }, { replace: true });
               }}
             >
               {query}
@@ -673,7 +713,8 @@ function Shop() {
           ))}
         </div>
       )}
-      <div className="filter-bar">
+      <div className="mobile-filter-controls"><button className="outline" aria-expanded={filtersOpen} aria-controls="collection-filters" onClick={() => setFiltersOpen(!filtersOpen)}><SlidersHorizontal size={17} /> Filters {activeFilters.length > 0 && `(${activeFilters.length})`} <ChevronDown size={15} /></button><span>{data.products.length} scents</span></div>
+      <div className={`filter-bar ${filtersOpen ? "expanded" : ""}`} id="collection-filters">
         <SlidersHorizontal size={18} />
         {[
           ["category", "Family", ["Fresh", "Woody", "Floral", "Amber"]],
@@ -745,7 +786,12 @@ function Shop() {
         )}
       </div>
       <ErrorBox error={error} />
-      {loading && !data.products.length ? <ProductSkeleton /> : <Grid products={data.products} />}
+      {loading && !data.products.length ? <ProductSkeleton /> : <Grid products={data.products} limit={visibleCount} />}
+      {!loading && data.products.length > 0 && <div className="collection-progress">
+        <p role="status">Showing {Math.min(visibleCount, data.products.length)} of {data.products.length} scents</p>
+        <progress value={Math.min(visibleCount, data.products.length)} max={data.products.length} aria-label="Fragrances shown" />
+        {visibleCount < data.products.length && <button className="outline" onClick={() => setVisibleCount((count) => count + 24)}>Discover more scents <Plus size={17} /></button>}
+      </div>}
       {!loading && !data.products.length && (
         <div className="empty">
           <h2>No scents in this edit.</h2>
@@ -833,7 +879,7 @@ function Product() {
       </div>
       <section className="product-detail">
         <div className={`detail-image tone-${p.category.toLowerCase()}`}>
-          <img src={p.image} alt={`${p.name} by ${p.brand}, product photograph`} />
+          <ProductImage src={p.image} alt={`${p.name} by ${p.brand}, product photograph`} sizes="(max-width: 800px) 90vw, 45vw" width="640" height="640" fetchPriority="high" />
           <span>SCENTHAUS · {p.category.toUpperCase()} COLLECTION</span>
         </div>
         <div className="detail-copy">
@@ -849,11 +895,12 @@ function Product() {
             ))}
           </div>
           <p className="detail-price">{money(selected?.price)}</p>
-          <div className="sizes">
+          <div className="sizes" role="group" aria-label="Choose a bottle size">
             {p.variants.map((v) => (
               <button
                 key={v.id}
                 className={v.id === selected?.id ? "selected" : "outline"}
+                aria-pressed={v.id === selected?.id}
                 onClick={() => setSelected(v)}
               >
                 {v.size_ml}ml{v.stock === 0 ? " · Sold out" : ""}
@@ -871,7 +918,7 @@ function Product() {
               disabled={!selected?.stock || busy}
               onClick={addBag}
             >
-              Add to bag <ShoppingBag size={17} />
+              {busy ? "Adding…" : "Add to bag"} <ShoppingBag size={17} />
             </button>
             <button
               className="outline"

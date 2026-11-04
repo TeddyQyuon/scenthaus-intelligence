@@ -195,3 +195,16 @@ The user authorized completing, committing/pushing and deploying this integratio
 ## Completed authorized release — 2026-10-07
 
 Stripe runtime `2398d7504b3a014105aca83f22655153ca8c02a8` passed full native CI (119 backend, 15 frontend, 12 browser tests) and is deployed/promoted. Actual public hosted test payment confirmed one numbered order; genuine-event retries, refresh, decline and cancellation were verified. Secrets and webhook configuration are server-only; no source/bundle/history matches. Portfolio `9b0001c4b908f8dd0cd2573f35d47e8cd802f6b3` is Ready with actual checkout/confirmation screenshots. See `reports/stripe-verification.md` for exact source, tests, environment variables, endpoints, files and remaining merchant launch requirements. No live charge or dispatch is enabled.
+
+## Storefront refresh — 4 November 2026
+
+- [x] Review the public storefront and Sephora Singapore, Jo Malone London and Diptyque fragrance browsing.
+- [x] Preserve the current catalogue/API/Stripe architecture while improving discovery, typography, motion and mobile controls.
+- [x] Add responsive product images, local font subsets, lazy checkout and search modules, and incremental product rendering.
+- [x] Validate with 22 frontend unit/integration tests and a production frontend build.
+- [ ] Verify deployed shopping flows and publish to the existing public domain.
+
+Assumption: this is a storefront update on the existing production branch,
+`complete-phases-real-catalog`. Backend data, merchant settings and payment
+configuration remain outside the change. The catalogue remains a simulated
+portfolio reference collection; no authenticity or shipping promises are added.
