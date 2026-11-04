@@ -202,7 +202,7 @@ Stripe runtime `2398d7504b3a014105aca83f22655153ca8c02a8` passed full native CI 
 - [x] Preserve the current catalogue/API/Stripe architecture while improving discovery, typography, motion and mobile controls.
 - [x] Add responsive product images, local font subsets, lazy checkout and search modules, and incremental product rendering.
 - [x] Validate with 22 frontend unit/integration tests and a production frontend build.
-- [ ] Verify deployed shopping flows and publish to the existing public domain.
+- [x] Verify deployed shopping flows and publish to the existing public domain.
 
 Assumption: this is a storefront update on the existing production branch,
 `complete-phases-real-catalog`. Backend data, merchant settings and payment
