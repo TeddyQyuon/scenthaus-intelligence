@@ -32,7 +32,12 @@ class TenantCreate(BaseModel):
     @classmethod
     def check_slug(cls, value: str) -> str:
         slug = value.lower()
-        if not SLUG_PATTERN.fullmatch(slug) or slug in {"api", "admin", "www", "platform"}:
+        if not SLUG_PATTERN.fullmatch(slug) or slug in {
+            "api",
+            "admin",
+            "www",
+            "platform",
+        }:
             raise ValueError("Invalid or reserved tenant slug")
         return slug
 
@@ -215,34 +220,19 @@ def register_custom_domain(
     ctx: tuple[Tenant, User] = Depends(require_tenant_role("owner", "admin")),
     db: DatabaseSession = Depends(get_db),
 ):
+    from .domains import register_domain_claim
+
     tenant, user = ctx
-    if db.scalar(select(TenantDomain).where(TenantDomain.domain == body.domain)):
-        raise HTTPException(409, "Domain is already registered")
-    domain = TenantDomain(
-        tenant_id=tenant.id,
-        domain=body.domain,
-        is_primary=body.is_primary,
-        verification_token=f"scenthaus-verify={uuid4().hex}",
-    )
-    db.add(domain)
-    db.add(
-        AuditLog(
-            tenant_id=tenant.id,
-            actor=user.id,
-            action="tenant.domain_added",
-            detail={"domain": body.domain},
-        )
-    )
-    db.commit()
-    db.refresh(domain)
-    return {
-        "id": domain.id,
-        "domain": domain.domain,
-        "is_primary": domain.is_primary,
-        "verified": domain.verified_at is not None,
-        "dns_instructions": {
-            "type": "TXT",
-            "host": f"_scenthaus.{domain.domain}",
-            "value": domain.verification_token,
-        },
-    }
+    return register_domain_claim(db, tenant, user, body.domain, body.is_primary)
+
+
+@router.post("/tenant/domains/{claim_id}/verify")
+def verify_custom_domain(
+    claim_id: str,
+    ctx: tuple[Tenant, User] = Depends(require_tenant_role("owner", "admin")),
+    db: DatabaseSession = Depends(get_db),
+):
+    from .domains import verify_domain_claim
+
+    tenant, user = ctx
+    return verify_domain_claim(db, tenant, user, claim_id)

@@ -1,10 +1,8 @@
 from datetime import datetime, timedelta
 from collections import defaultdict
-import numpy as np
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
 from sqlalchemy import select, func, or_
 from .models import Order, OrderItem, Variant, Product, Event, User
+from .tenancy.queries import tenant_select
 
 
 def date_range(start=None, end=None):
@@ -26,12 +24,16 @@ def date_range(start=None, end=None):
 def overview(db, start=None, end=None):
     lo, hi = date_range(start, end)
     orders = db.scalars(
-        select(Order).where(Order.created_at >= lo, Order.created_at < hi, or_(Order.payment_status.is_(None), Order.payment_status == "paid"))
+        tenant_select(db, Order).where(
+            Order.created_at >= lo,
+            Order.created_at < hi,
+            or_(Order.payment_status.is_(None), Order.payment_status == "paid"),
+        )
     ).all()
     ids = [o.id for o in orders]
     line_rows = (
         db.execute(
-            select(OrderItem, Variant, Product)
+            tenant_select(db, OrderItem, Variant, Product)
             .join(Variant, OrderItem.variant_id == Variant.id)
             .join(Product, Variant.product_id == Product.id)
             .where(OrderItem.order_id.in_(ids))
@@ -57,7 +59,7 @@ def overview(db, start=None, end=None):
         products[p.name]["units"] += line.quantity
         products[p.name]["revenue"] += amount
     events = db.scalars(
-        select(Event).where(Event.created_at >= lo, Event.created_at < hi)
+        tenant_select(db, Event).where(Event.created_at >= lo, Event.created_at < hi)
     ).all()
     viewusers = {e.user_id for e in events if e.event_type == "view"}
     converted = viewusers & set(counts)
@@ -140,15 +142,23 @@ def overview(db, start=None, end=None):
 
 
 def segments(db):
+    import numpy as np
+    from sklearn.cluster import KMeans
+    from sklearn.preprocessing import StandardScaler
+
     orders = db.execute(
-        select(
+        tenant_select(
+            db,
             Order.user_id,
             func.max(Order.created_at),
             func.count(Order.id),
             func.sum(Order.total),
         )
         .join(User, Order.user_id == User.id)
-        .where(User.consent == True, or_(Order.payment_status.is_(None), Order.payment_status == "paid"))
+        .where(
+            User.consent == True,
+            or_(Order.payment_status.is_(None), Order.payment_status == "paid"),
+        )
         .group_by(Order.user_id)
     ).all()
     if len(orders) < 3:

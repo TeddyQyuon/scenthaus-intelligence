@@ -14,7 +14,7 @@ from .database import get_db
 from .models import *
 from .schemas import *
 from .security import (
-    user_required,
+    store_user_required as user_required,
     admin_required,
     session_user,
     issue,
@@ -25,9 +25,22 @@ from .security import (
 )
 from .ml.serving import store
 from .catalog import ACCORDS
-from .account_security import router as security_router, check_rate_limit, record_event, verify_factor
+from .account_security import (
+    router as security_router,
+    check_rate_limit,
+    record_event,
+    verify_factor,
+)
 from .checkout import router as checkout_router, public_order
 from .tenancy.constants import DEFAULT_TENANT_ID
+from .tenancy.deps import resolve_tenant, require_tenant_role
+from .tenancy.queries import (
+    active_tenant_id,
+    tenant_select,
+    tenant_get,
+    tenant_delete,
+    tenant_update,
+)
 from .tenancy.router import router as tenancy_router
 from .domains.catalog.router import router as catalog_router
 from .domains.customers.router import router as customers_router
@@ -120,7 +133,9 @@ async def bad_input(request, exc):
 def product_json(p, db, variants=None):
     if variants is None:
         variants = db.scalars(
-            select(Variant).where(Variant.product_id == p.id).order_by(Variant.size_ml)
+            tenant_select(db, Variant)
+            .where(Variant.product_id == p.id)
+            .order_by(Variant.size_ml)
         ).all()
     return {
         key: getattr(p, key)
@@ -174,7 +189,7 @@ def available(
 ):
     active_tid = db.info.get("tenant_id", DEFAULT_TENANT_ID)
     products = db.scalars(
-        select(Product)
+        tenant_select(db, Product)
         .where(
             Product.tenant_id == active_tid,
             Product.hidden == False,
@@ -184,7 +199,7 @@ def available(
     ).all()
     variants_by_product = defaultdict(list)
     for variant in db.scalars(
-        select(Variant)
+        tenant_select(db, Variant)
         .where(Variant.tenant_id == active_tid)
         .order_by(Variant.size_ml)
     ):
@@ -226,7 +241,7 @@ def functional_event(db, user, pid, kind):
         return
     click = (
         db.scalar(
-            select(Event)
+            tenant_select(db, Event)
             .where(
                 Event.user_id == user.id,
                 Event.product_id == pid,
@@ -241,6 +256,7 @@ def functional_event(db, user, pid, kind):
     )
     db.add(
         Event(
+            tenant_id=active_tenant_id(db),
             user_id=user.id,
             product_id=pid,
             event_type=kind,
@@ -263,24 +279,27 @@ def history(db, user):
     wishes = set()
     if not user.consent:
         return values, wishes, None
-    for r in db.scalars(select(Wishlist).where(Wishlist.user_id == user.id)):
+    for r in db.scalars(tenant_select(db, Wishlist).where(Wishlist.user_id == user.id)):
         values[r.product_id] += 2
         wishes.add(r.product_id)
     for c, v in db.execute(
-        select(CartItem, Variant)
+        tenant_select(db, CartItem, Variant)
         .join(Variant, CartItem.variant_id == Variant.id)
         .where(CartItem.user_id == user.id)
     ):
         values[v.product_id] += c.quantity
     for item, v in db.execute(
-        select(OrderItem, Variant)
+        tenant_select(db, OrderItem, Variant)
         .join(Variant, OrderItem.variant_id == Variant.id)
         .join(Order, OrderItem.order_id == Order.id)
-        .where(Order.user_id == user.id, or_(Order.payment_status.is_(None), Order.payment_status == "paid"))
+        .where(
+            Order.user_id == user.id,
+            or_(Order.payment_status.is_(None), Order.payment_status == "paid"),
+        )
     ):
         values[v.product_id] += item.quantity * 3
     for e in db.scalars(
-        select(Event)
+        tenant_select(db, Event)
         .where(Event.user_id == user.id)
         .order_by(Event.created_at.desc())
         .limit(50)
@@ -291,13 +310,17 @@ def history(db, user):
                 "click": 0.3,
                 "add_to_cart": 0.7,
             }.get(e.event_type, 0)
-    profile = db.get(QuizProfile, user.id)
+    profile = tenant_get(db, QuizProfile, user.id)
     return values, wishes, profile.weights if profile else None
 
 
 def results(
     db, user, kind="user", product_id=None, k=8, quiz=None, experiment=None, **filters
 ):
+    if active_tenant_id(db) != DEFAULT_TENANT_ID:
+        raise HTTPException(
+            503, "Offline intelligence is unavailable for this storefront"
+        )
     import numpy as np
     from sklearn.metrics.pairwise import cosine_similarity
     from .ml.recommender import scores, mmr, scale
@@ -319,7 +342,7 @@ def results(
         cartpids = {
             v.product_id
             for c, v in db.execute(
-                select(CartItem, Variant)
+                tenant_select(db, CartItem, Variant)
                 .join(Variant, CartItem.variant_id == Variant.id)
                 .where(CartItem.user_id == user.id)
             )
@@ -353,7 +376,7 @@ def results(
                     recent_ids=list(
                         reversed(
                             db.scalars(
-                                select(Event.product_id)
+                                tenant_select(db, Event.product_id)
                                 .where(
                                     Event.user_id == user.id,
                                     Event.product_id.is_not(None),
@@ -393,7 +416,7 @@ def results(
                 best = max(
                     known, key=lambda old: model["content"][i, model["index"][old]]
                 )
-                source = db.get(Product, best)
+                source = tenant_get(db, Product, best)
                 shared = set(sum(source.notes.values(), [])) & set(
                     sum(p["notes"].values(), [])
                 )
@@ -408,7 +431,8 @@ def results(
                 )
         if pid in rule_details:
             reason = "Often in the same basket: " + ", ".join(
-                db.get(Product, int(a)).name for a in rule_details[pid]["antecedents"]
+                tenant_get(db, Product, int(a)).name
+                for a in rule_details[pid]["antecedents"]
             )
             reason_tags = ["Often bought together"]
         elif quiz or profile:
@@ -447,6 +471,7 @@ def results(
     recid = None
     if user.consent and output:
         req = RecommendationRequest(
+            tenant_id=active_tenant_id(db),
             user_id=user.id,
             product_ids=[p["id"] for p in output],
             slot=kind,
@@ -478,10 +503,32 @@ def health(db=Depends(get_db)):
 
 
 @app.get("/auth/session")
-def auth_session(request: Request, response: Response, db=Depends(get_db)):
+def auth_session(
+    request: Request,
+    response: Response,
+    db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
+):
     user = session_user(request, db)
+    if user and user.tenant_id != tenant.id:
+        # Merchant login accounts may be created on the platform storefront.
+        # Preserve their authenticated session while booting a store they manage.
+        membership = (
+            db.scalar(
+                tenant_select(db, Membership).where(
+                    Membership.user_id == user.id,
+                    Membership.tenant_id == tenant.id,
+                )
+            )
+            if user.email
+            else None
+        )
+        if membership is None:
+            user = None
     if not user:
-        user = User()
+        user = User(
+            tenant_id=active_tenant_id(db),
+        )
         db.add(user)
         db.commit()
         token = issue(user, response, db, request)
@@ -497,15 +544,16 @@ def register(
     response: Response,
     user=Depends(user_required),
     db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
 ):
     if user.email:
         raise HTTPException(409, "Already signed in")
-    if db.scalar(select(User).where(User.email == body.email)):
+    if db.scalar(tenant_select(db, User).where(User.email == body.email)):
         raise HTTPException(409, "Email already registered")
     user.email = body.email
     user.password_hash = hasher.hash(body.password)
     record_event(db, request, "account_created", True, user)
-    db.delete(db.get(Session, digest(request.cookies["scenthaus_session"])))
+    db.delete(tenant_get(db, Session, digest(request.cookies["scenthaus_session"])))
     db.commit()
     return identity(user, issue(user, response, db, request))
 
@@ -517,10 +565,15 @@ def login(
     response: Response,
     user=Depends(user_required),
     db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
 ):
     check_rate_limit(db, request, body.email)
-    account = db.scalar(select(User).where(User.email == body.email).with_for_update()
-                        .execution_options(populate_existing=True))
+    account = db.scalar(
+        tenant_select(db, User)
+        .where(User.email == body.email)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     try:
         valid = account and hasher.verify(account.password_hash, body.password)
     except Exception:
@@ -535,13 +588,16 @@ def login(
         if not verify_factor(account, body.otp_code):
             record_event(db, request, "login", False, account, body.email)
             db.commit()
-            raise HTTPException(401, "Invalid verification code. Use a fresh authenticator code or an unused recovery code.")
+            raise HTTPException(
+                401,
+                "Invalid verification code. Use a fresh authenticator code or an unused recovery code.",
+            )
     if not user.email and user.id != account.id:
         for old in db.scalars(
-            select(CartItem).where(CartItem.user_id == user.id)
+            tenant_select(db, CartItem).where(CartItem.user_id == user.id)
         ).all():
             dest = db.scalar(
-                select(CartItem).where(
+                tenant_select(db, CartItem).where(
                     CartItem.user_id == account.id,
                     CartItem.variant_id == old.variant_id,
                 )
@@ -552,10 +608,10 @@ def login(
             else:
                 old.user_id = account.id
         for old in db.scalars(
-            select(Wishlist).where(Wishlist.user_id == user.id)
+            tenant_select(db, Wishlist).where(Wishlist.user_id == user.id)
         ).all():
             dest = db.scalar(
-                select(Wishlist).where(
+                tenant_select(db, Wishlist).where(
                     Wishlist.user_id == account.id,
                     Wishlist.product_id == old.product_id,
                 )
@@ -564,7 +620,7 @@ def login(
                 db.delete(old)
             else:
                 old.user_id = account.id
-    db.delete(db.get(Session, digest(request.cookies["scenthaus_session"])))
+    db.delete(tenant_get(db, Session, digest(request.cookies["scenthaus_session"])))
     record_event(db, request, "login", True, account)
     db.commit()
     return identity(account, issue(account, response, db, request))
@@ -576,22 +632,30 @@ def logout(
     response: Response,
     user=Depends(user_required),
     db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
 ):
-    db.delete(db.get(Session, digest(request.cookies["scenthaus_session"])))
+    db.delete(tenant_get(db, Session, digest(request.cookies["scenthaus_session"])))
     if user.email:
         record_event(db, request, "logout", True, user)
-    guest = User()
+    guest = User(
+        tenant_id=active_tenant_id(db),
+    )
     db.add(guest)
     db.commit()
     return identity(guest, issue(guest, response, db, request))
 
 
 @app.put("/privacy/consent")
-def consent(body: Consent, user=Depends(user_required), db=Depends(get_db)):
+def consent(
+    body: Consent,
+    user=Depends(user_required),
+    db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
+):
     user.consent = body.consent
     if not body.consent:
         for model in [Event, RecommendationRequest, QuizProfile]:
-            db.execute(delete(model).where(model.user_id == user.id))
+            db.execute(tenant_delete(db, model).where(model.user_id == user.id))
     db.commit()
     return {
         "consent": user.consent,
@@ -600,26 +664,47 @@ def consent(body: Consent, user=Depends(user_required), db=Depends(get_db)):
 
 
 @app.get("/privacy/export")
-def personal_export(user=Depends(user_required), db=Depends(get_db)):
-    profile = db.get(QuizProfile, user.id)
+def personal_export(
+    user=Depends(user_required),
+    db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
+):
+    profile = tenant_get(db, QuizProfile, user.id)
     return {
         "user": {"id": user.id, "email": user.email, "consent": user.consent},
         "wishlist": [
             w.product_id
-            for w in db.scalars(select(Wishlist).where(Wishlist.user_id == user.id))
+            for w in db.scalars(
+                tenant_select(db, Wishlist)
+                .join(Product, Wishlist.product_id == Product.id)
+                .where(Wishlist.user_id == user.id)
+            )
         ],
         "quiz": profile.answers if profile else None,
         "orders": order_list(user, db),
-        "checkout_orders": [public_order(order, db) for order in db.scalars(
-            select(Order).where(Order.user_id == user.id, Order.order_number.is_not(None)))],
+        "checkout_orders": [
+            public_order(order, db)
+            for order in db.scalars(
+                tenant_select(db, Order).where(
+                    Order.user_id == user.id, Order.order_number.is_not(None)
+                )
+            )
+        ],
         "security_history": [
-            {"kind": event.kind, "success": event.success,
-             "created_at": event.created_at.isoformat() + "Z",
-             "ip_address": event.ip_address, "location": event.location,
-             "user_agent": event.user_agent}
-            for event in db.scalars(select(SecurityEvent).where(
-                SecurityEvent.user_id == user.id,
-                SecurityEvent.created_at >= now() - timedelta(days=90)))
+            {
+                "kind": event.kind,
+                "success": event.success,
+                "created_at": event.created_at.isoformat() + "Z",
+                "ip_address": event.ip_address,
+                "location": event.location,
+                "user_agent": event.user_agent,
+            }
+            for event in db.scalars(
+                tenant_select(db, SecurityEvent).where(
+                    SecurityEvent.user_id == user.id,
+                    SecurityEvent.created_at >= now() - timedelta(days=90),
+                )
+            )
         ],
         "events": [
             {
@@ -627,7 +712,9 @@ def personal_export(user=Depends(user_required), db=Depends(get_db)):
                 "type": e.event_type,
                 "created_at": str(e.created_at),
             }
-            for e in db.scalars(select(Event).where(Event.user_id == user.id))
+            for e in db.scalars(
+                tenant_select(db, Event).where(Event.user_id == user.id)
+            )
         ],
     }
 
@@ -645,8 +732,9 @@ def products(
     in_stock: bool = False,
     sort: str = "featured",
     db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
 ):
-    response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
+    response.headers["Cache-Control"] = "private, no-store"
     rows = available(
         db,
         q=q,
@@ -668,13 +756,15 @@ def products(
     active_tid = db.info.get("tenant_id", DEFAULT_TENANT_ID)
     brands = list(
         db.scalars(
-            select(Product.brand)
+            tenant_select(db, Product.brand)
             .where(
                 Product.tenant_id == active_tid,
                 Product.hidden == False,
                 Product.launch_date <= date.today(),
                 Product.id.in_(
-                    select(Variant.product_id).where(Variant.tenant_id == active_tid)
+                    tenant_select(db, Variant.product_id).where(
+                        Variant.tenant_id == active_tid
+                    )
                 ),
             )
             .distinct()
@@ -688,11 +778,16 @@ def products(
 
 
 @app.get("/products/{slug}")
-def product(slug: str, response: Response, db=Depends(get_db)):
-    response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
+def product(
+    slug: str,
+    response: Response,
+    db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
+):
+    response.headers["Cache-Control"] = "private, no-store"
     active_tid = db.info.get("tenant_id", DEFAULT_TENANT_ID)
     p = db.scalar(
-        select(Product).where(
+        tenant_select(db, Product).where(
             Product.tenant_id == active_tid,
             Product.slug == slug,
             Product.hidden == False,
@@ -705,9 +800,13 @@ def product(slug: str, response: Response, db=Depends(get_db)):
 
 
 @app.get("/wishlist")
-def wishlist(user=Depends(user_required), db=Depends(get_db)):
+def wishlist(
+    user=Depends(user_required),
+    db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
+):
     rows = db.scalars(
-        select(Product)
+        tenant_select(db, Product)
         .join(Wishlist, Wishlist.product_id == Product.id)
         .where(Wishlist.user_id == user.id, Product.hidden == False)
     ).all()
@@ -715,23 +814,41 @@ def wishlist(user=Depends(user_required), db=Depends(get_db)):
 
 
 @app.put("/wishlist/{pid}")
-def add_wishlist(pid: int, user=Depends(user_required), db=Depends(get_db)):
-    p = db.get(Product, pid)
+def add_wishlist(
+    pid: int,
+    user=Depends(user_required),
+    db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
+):
+    p = tenant_get(db, Product, pid)
     if not p or p.hidden:
         raise HTTPException(404, "Product not found")
     if not db.scalar(
-        select(Wishlist).where(Wishlist.user_id == user.id, Wishlist.product_id == pid)
+        tenant_select(db, Wishlist).where(
+            Wishlist.user_id == user.id, Wishlist.product_id == pid
+        )
     ):
-        db.add(Wishlist(user_id=user.id, product_id=pid))
+        db.add(
+            Wishlist(tenant_id=active_tenant_id(db), user_id=user.id, product_id=pid)
+        )
         functional_event(db, user, pid, "wishlist_add")
         db.commit()
     return {"ok": True}
 
 
 @app.delete("/wishlist/{pid}")
-def remove_wishlist(pid: int, user=Depends(user_required), db=Depends(get_db)):
+def remove_wishlist(
+    pid: int,
+    user=Depends(user_required),
+    db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
+):
+    if tenant_get(db, Product, pid) is None:
+        raise HTTPException(404, "Product not found")
     db.execute(
-        delete(Wishlist).where(Wishlist.user_id == user.id, Wishlist.product_id == pid)
+        tenant_delete(db, Wishlist).where(
+            Wishlist.user_id == user.id, Wishlist.product_id == pid
+        )
     )
     functional_event(db, user, pid, "wishlist_remove")
     db.commit()
@@ -739,9 +856,13 @@ def remove_wishlist(pid: int, user=Depends(user_required), db=Depends(get_db)):
 
 
 @app.get("/cart")
-def cart(user=Depends(user_required), db=Depends(get_db)):
+def cart(
+    user=Depends(user_required),
+    db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
+):
     rows = db.execute(
-        select(CartItem, Variant, Product)
+        tenant_select(db, CartItem, Variant, Product)
         .join(Variant, CartItem.variant_id == Variant.id)
         .join(Product, Variant.product_id == Product.id)
         .where(CartItem.user_id == user.id)
@@ -764,49 +885,81 @@ def cart(user=Depends(user_required), db=Depends(get_db)):
 
 
 @app.put("/cart")
-def update_cart(body: CartUpdate, user=Depends(user_required), db=Depends(get_db)):
-    db.scalar(select(User).where(User.id == user.id).with_for_update())
-    v = db.get(Variant, body.variant_id)
-    if not v or db.get(Product, v.product_id).hidden:
+def update_cart(
+    body: CartUpdate,
+    user=Depends(user_required),
+    db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
+):
+    db.scalar(tenant_select(db, User).where(User.id == user.id).with_for_update())
+    v = tenant_get(db, Variant, body.variant_id)
+    p = tenant_get(db, Product, v.product_id) if v else None
+    if not v or not p or p.hidden:
         raise HTTPException(404, "Product not found")
     if v.stock < body.quantity:
         raise HTTPException(409, "Insufficient stock")
     row = db.scalar(
-        select(CartItem).where(CartItem.user_id == user.id, CartItem.variant_id == v.id)
+        tenant_select(db, CartItem).where(
+            CartItem.user_id == user.id, CartItem.variant_id == v.id
+        )
     )
     if row:
         row.quantity = body.quantity
     else:
-        db.add(CartItem(user_id=user.id, variant_id=v.id, quantity=body.quantity))
+        db.add(
+            CartItem(
+                tenant_id=active_tenant_id(db),
+                user_id=user.id,
+                variant_id=v.id,
+                quantity=body.quantity,
+            )
+        )
     functional_event(db, user, v.product_id, "add_to_cart")
     db.commit()
     return cart(user, db)
 
 
 @app.post("/cart/add")
-def quick_add_cart(body: CartUpdate, user=Depends(user_required), db=Depends(get_db)):
+def quick_add_cart(
+    body: CartUpdate,
+    user=Depends(user_required),
+    db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
+):
     # Serialize additive and replacement bag writes for this user across devices.
-    db.scalar(select(User).where(User.id == user.id).with_for_update())
-    existing = db.scalar(select(CartItem).where(
-        CartItem.user_id == user.id, CartItem.variant_id == body.variant_id))
+    db.scalar(tenant_select(db, User).where(User.id == user.id).with_for_update())
+    existing = db.scalar(
+        tenant_select(db, CartItem).where(
+            CartItem.user_id == user.id, CartItem.variant_id == body.variant_id
+        )
+    )
     quantity = body.quantity + (existing.quantity if existing else 0)
     if quantity > 10:
         raise HTTPException(409, "You can add up to 10 bottles of a size to your bag.")
-    return update_cart(CartUpdate(variant_id=body.variant_id, quantity=quantity), user, db)
+    return update_cart(
+        CartUpdate(variant_id=body.variant_id, quantity=quantity), user, db
+    )
 
 
 @app.delete("/cart/{vid}")
-def remove_cart(vid: int, user=Depends(user_required), db=Depends(get_db)):
-    db.scalar(select(User).where(User.id == user.id).with_for_update())
+def remove_cart(
+    vid: int,
+    user=Depends(user_required),
+    db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
+):
+    db.scalar(tenant_select(db, User).where(User.id == user.id).with_for_update())
     db.execute(
-        delete(CartItem).where(CartItem.user_id == user.id, CartItem.variant_id == vid)
+        tenant_delete(db, CartItem).where(
+            CartItem.user_id == user.id, CartItem.variant_id == vid
+        )
     )
     db.commit()
     return cart(user, db)
 
 
 @app.post("/checkout")
-def checkout(user=Depends(user_required)):
+def checkout(user=Depends(user_required), tenant: Tenant = Depends(resolve_tenant)):
     raise HTTPException(410, "Continue to secure checkout to complete your purchase.")
 
 
@@ -822,7 +975,7 @@ def order_list(user, db):
             "payment_mode": o.payment_mode,
         }
         for o in db.scalars(
-            select(Order)
+            tenant_select(db, Order)
             .where(Order.user_id == user.id)
             .order_by(Order.created_at.desc())
             .limit(50)
@@ -831,20 +984,29 @@ def order_list(user, db):
 
 
 @app.get("/orders")
-def orders(user=Depends(user_required), db=Depends(get_db)):
+def orders(
+    user=Depends(user_required),
+    db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
+):
     return order_list(user, db)
 
 
 @app.post("/events")
-def event(body: TrackedEvent, user=Depends(user_required), db=Depends(get_db)):
+def event(
+    body: TrackedEvent,
+    user=Depends(user_required),
+    db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
+):
     if not user.consent:
         return {"accepted": False, "reason": "Personalization is off"}
-    p = db.get(Product, body.product_id)
+    p = tenant_get(db, Product, body.product_id)
     if not p or p.hidden:
         raise HTTPException(404, "Product not found")
     req = None
     if body.recommendation_id:
-        req = db.get(RecommendationRequest, body.recommendation_id)
+        req = tenant_get(db, RecommendationRequest, body.recommendation_id)
         if (
             not req
             or req.user_id != user.id
@@ -853,7 +1015,7 @@ def event(body: TrackedEvent, user=Depends(user_required), db=Depends(get_db)):
         ):
             raise HTTPException(422, "Invalid recommendation attribution")
         duplicate = db.scalar(
-            select(Event).where(
+            tenant_select(db, Event).where(
                 Event.user_id == user.id,
                 Event.recommendation_id == req.id,
                 Event.product_id == body.product_id,
@@ -866,6 +1028,7 @@ def event(body: TrackedEvent, user=Depends(user_required), db=Depends(get_db)):
         raise HTTPException(422, "Recommendation reference required")
     db.add(
         Event(
+            tenant_id=active_tenant_id(db),
             user_id=user.id,
             product_id=body.product_id,
             event_type=body.event_type,
@@ -889,6 +1052,7 @@ def recommend_user(
     experiment: str | None = None,
     user=Depends(user_required),
     db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
 ):
     return results(
         db,
@@ -913,6 +1077,7 @@ def similar(
     in_stock: bool = True,
     user=Depends(user_required),
     db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
 ):
     return results(
         db,
@@ -928,28 +1093,51 @@ def similar(
 
 
 @app.get("/recommend/also-bought")
-def also_bought(product_id: int, user=Depends(user_required), db=Depends(get_db)):
+def also_bought(
+    product_id: int,
+    user=Depends(user_required),
+    db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
+):
     return results(db, user, "also-bought", product_id)
 
 
 @app.get("/recommend/substitutes")
-def substitutes(product_id: int, user=Depends(user_required), db=Depends(get_db)):
+def substitutes(
+    product_id: int,
+    user=Depends(user_required),
+    db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
+):
     return results(db, user, "substitutes", product_id)
 
 
 @app.get("/recommend/cart")
-def cart_recs(user=Depends(user_required), db=Depends(get_db)):
+def cart_recs(
+    user=Depends(user_required),
+    db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
+):
     return results(db, user, "cart")
 
 
 @app.post("/recommend/quiz")
-def quiz(body: Quiz, user=Depends(user_required), db=Depends(get_db)):
+def quiz(
+    body: Quiz,
+    user=Depends(user_required),
+    db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
+):
+    if tenant.id != DEFAULT_TENANT_ID:
+        raise HTTPException(
+            503, "Offline intelligence is unavailable for this storefront"
+        )
     from .ml.recommender import quiz_weights
 
     answers = body.model_dump()
     weights = quiz_weights(answers)
     if user.consent:
-        profile = db.get(QuizProfile, user.id)
+        profile = tenant_get(db, QuizProfile, user.id)
         if profile:
             profile.answers = answers
             profile.weights = weights
@@ -968,7 +1156,12 @@ def natural_search(
     q: str = Query(min_length=2, max_length=200),
     method: str = "hybrid",
     db=Depends(get_db),
+    tenant: Tenant = Depends(resolve_tenant),
 ):
+    if tenant.id != DEFAULT_TENANT_ID:
+        raise HTTPException(
+            503, "Offline intelligence is unavailable for this storefront"
+        )
     from ml.search import parse_query, eligible_ids, load_index, rank
     from ml.core import ARTIFACTS
 
@@ -977,7 +1170,8 @@ def natural_search(
     index = load_index(b.get("search_path", str(ARTIFACTS / "search")))
     ranked = rank(index, parsed["text"], eligible_ids(db, parsed), method)[:12]
     products = {
-        p.id: p for p in db.scalars(select(Product).where(Product.id.in_(ranked)))
+        p.id: p
+        for p in db.scalars(tenant_select(db, Product).where(Product.id.in_(ranked)))
     }
     return {
         "products": [product_json(products[pid], db) for pid in ranked],
@@ -990,7 +1184,11 @@ def natural_search(
 
 
 @app.get("/intelligence")
-def intelligence():
+def intelligence(tenant: Tenant = Depends(resolve_tenant)):
+    if tenant.id != DEFAULT_TENANT_ID:
+        raise HTTPException(
+            503, "Offline intelligence is unavailable for this storefront"
+        )
     return bundle()["metrics"]
 
 
@@ -999,8 +1197,13 @@ def sku_forecast(
     sku: str,
     horizon: int = Query(8, ge=4, le=12),
     model: str = "lightgbm",
-    user=Depends(admin_required),
+    ctx: tuple[Tenant, User] = Depends(require_tenant_role("owner", "admin")),
 ):
+    if ctx[0].id != DEFAULT_TENANT_ID:
+        raise HTTPException(
+            503, "Offline intelligence is unavailable for this storefront"
+        )
+    tenant, user = ctx
     b = bundle()
     available = b["forecast"].get("models", {})
     if model not in available:
@@ -1024,9 +1227,14 @@ def sku_forecast_by_id(
     id: str,
     horizon: int = Query(8, ge=4, le=12),
     model: str = "lightgbm",
-    user=Depends(admin_required),
+    ctx: tuple[Tenant, User] = Depends(require_tenant_role("owner", "admin")),
 ):
-    return sku_forecast(id, horizon, model, user)
+    if ctx[0].id != DEFAULT_TENANT_ID:
+        raise HTTPException(
+            503, "Offline intelligence is unavailable for this storefront"
+        )
+    tenant, user = ctx
+    return sku_forecast(id, horizon, model, ctx)
 
 
 @app.get("/forecast/summary")
@@ -1035,8 +1243,13 @@ def forecast_summary(
     key: str | None = None,
     horizon: int = Query(8, ge=4, le=12),
     model: str = "lightgbm",
-    user=Depends(admin_required),
+    ctx: tuple[Tenant, User] = Depends(require_tenant_role("owner", "admin")),
 ):
+    if ctx[0].id != DEFAULT_TENANT_ID:
+        raise HTTPException(
+            503, "Offline intelligence is unavailable for this storefront"
+        )
+    tenant, user = ctx
     b = bundle()
     if model not in b["forecast"].get("models", {}):
         raise HTTPException(422, "Choose seasonal_naive, lightgbm, lstm or nbeats")
@@ -1088,18 +1301,25 @@ def forecast_summary(
 def admin_overview(
     start: str | None = None,
     end: str | None = None,
-    user=Depends(admin_required),
+    ctx: tuple[Tenant, User] = Depends(require_tenant_role("owner", "admin")),
     db=Depends(get_db),
 ):
+    tenant, user = ctx
     from .analytics import overview
 
     return overview(db, start, end)
 
 
 def inventory_rows(db):
+    if active_tenant_id(db) != DEFAULT_TENANT_ID:
+        raise HTTPException(
+            503, "Offline intelligence is unavailable for this storefront"
+        )
     rows = []
     for saved in bundle()["forecast"]["inventory"]:
-        v = db.get(Variant, saved["variant_id"])
+        v = tenant_get(db, Variant, saved["variant_id"])
+        if v is None:
+            continue
         stock = v.stock
         risk = (
             "stockout"
@@ -1124,33 +1344,55 @@ def inventory_rows(db):
 
 
 @app.get("/admin/inventory")
-def admin_inventory(user=Depends(admin_required), db=Depends(get_db)):
+def admin_inventory(
+    ctx: tuple[Tenant, User] = Depends(require_tenant_role("owner", "admin")),
+    db=Depends(get_db),
+):
+    tenant, user = ctx
     return inventory_rows(db)
 
 
 @app.get("/admin/segments")
-def admin_segments(user=Depends(admin_required), db=Depends(get_db)):
+def admin_segments(
+    ctx: tuple[Tenant, User] = Depends(require_tenant_role("owner", "admin")),
+    db=Depends(get_db),
+):
+    tenant, user = ctx
     from .analytics import segments
 
     return segments(db)
 
 
 @app.get("/admin/evaluation")
-def admin_evaluation(user=Depends(admin_required)):
+def admin_evaluation(
+    ctx: tuple[Tenant, User] = Depends(require_tenant_role("owner", "admin")),
+):
+    if ctx[0].id != DEFAULT_TENANT_ID:
+        raise HTTPException(
+            503, "Offline intelligence is unavailable for this storefront"
+        )
+    tenant, user = ctx
     return bundle()["metrics"]
 
 
 @app.get("/admin/tracking")
 def admin_tracking(
-    sku: str | None = None, user=Depends(admin_required), db=Depends(get_db)
+    sku: str | None = None,
+    ctx: tuple[Tenant, User] = Depends(require_tenant_role("owner", "admin")),
+    db=Depends(get_db),
 ):
+    if ctx[0].id != DEFAULT_TENANT_ID:
+        raise HTTPException(
+            503, "Offline intelligence is unavailable for this storefront"
+        )
+    tenant, user = ctx
     holdout = [
         r for r in bundle()["forecast"]["tracking"] if not sku or r["sku"] == sku
     ]
     saved = db.scalars(
-        select(ForecastSnapshot).where(ForecastSnapshot.sku == sku)
+        tenant_select(db, ForecastSnapshot).where(ForecastSnapshot.sku == sku)
         if sku
-        else select(ForecastSnapshot)
+        else tenant_select(db, ForecastSnapshot)
     ).all()
     return {
         "holdout": holdout,
@@ -1172,25 +1414,35 @@ def admin_tracking(
 
 
 @app.get("/admin/products")
-def admin_products(user=Depends(admin_required), db=Depends(get_db)):
+def admin_products(
+    ctx: tuple[Tenant, User] = Depends(require_tenant_role("owner", "admin")),
+    db=Depends(get_db),
+):
+    tenant, user = ctx
     return [
-        product_json(p, db) for p in db.scalars(select(Product).order_by(Product.id))
+        product_json(p, db)
+        for p in db.scalars(tenant_select(db, Product).order_by(Product.id))
     ]
 
 
 @app.put("/admin/products/{pid}")
 def override(
-    pid: int, body: Override, user=Depends(admin_required), db=Depends(get_db)
+    pid: int,
+    body: Override,
+    ctx: tuple[Tenant, User] = Depends(require_tenant_role("owner", "admin")),
+    db=Depends(get_db),
 ):
+    tenant, user = ctx
     if body.pinned and body.hidden:
         raise HTTPException(422, "A hidden product cannot be pinned")
-    p = db.get(Product, pid)
+    p = tenant_get(db, Product, pid)
     if not p:
         raise HTTPException(404, "Product not found")
     p.pinned = body.pinned
     p.hidden = body.hidden
     db.add(
         AuditLog(
+            tenant_id=active_tenant_id(db),
             actor=user.id,
             action="recommendation_override",
             detail={"product_id": pid, **body.model_dump()},
@@ -1202,14 +1454,19 @@ def override(
 
 @app.put("/admin/stock/{vid}")
 def stock_update(
-    vid: int, body: Stock, user=Depends(admin_required), db=Depends(get_db)
+    vid: int,
+    body: Stock,
+    ctx: tuple[Tenant, User] = Depends(require_tenant_role("owner", "admin")),
+    db=Depends(get_db),
 ):
-    v = db.get(Variant, vid)
+    tenant, user = ctx
+    v = tenant_get(db, Variant, vid)
     if not v:
         raise HTTPException(404, "SKU not found")
     v.stock = body.stock
     db.add(
         AuditLog(
+            tenant_id=active_tenant_id(db),
             actor=user.id,
             action="stock_update",
             detail={"variant_id": vid, "stock": body.stock},
@@ -1220,7 +1477,11 @@ def stock_update(
 
 
 @app.get("/admin/models")
-def models(user=Depends(admin_required), db=Depends(get_db)):
+def models(
+    ctx: tuple[Tenant, User] = Depends(require_tenant_role("owner", "admin")),
+    db=Depends(get_db),
+):
+    tenant, user = ctx
     return [
         {
             "version": r.version,
@@ -1228,19 +1489,29 @@ def models(user=Depends(admin_required), db=Depends(get_db)):
             "data_hash": r.data_hash,
             "mlflow_run_id": r.mlflow_run_id,
         }
-        for r in db.scalars(select(ModelRun).order_by(ModelRun.created_at.desc()))
+        for r in db.scalars(
+            tenant_select(db, ModelRun).order_by(ModelRun.created_at.desc())
+        )
     ]
 
 
 @app.get("/admin/monitor")
-def monitor(user=Depends(admin_required), db=Depends(get_db)):
+def monitor(
+    ctx: tuple[Tenant, User] = Depends(require_tenant_role("owner", "admin")),
+    db=Depends(get_db),
+):
+    if ctx[0].id != DEFAULT_TENANT_ID:
+        raise HTTPException(
+            503, "Offline intelligence is unavailable for this storefront"
+        )
+    tenant, user = ctx
     import numpy as np
     from .ml.metrics import metrics as forecast_metrics
 
     b = bundle()
     data = np.array([l[1] for l in latencies])
     views = db.execute(
-        select(Event.product_id, func.count())
+        tenant_select(db, Event.product_id, func.count())
         .where(
             Event.event_type == "view", Event.created_at >= now() - timedelta(days=28)
         )
@@ -1253,7 +1524,7 @@ def monitor(user=Depends(admin_required), db=Depends(get_db)):
     observed = (observed + 0.01) / (observed + 0.01).sum()
     psi = float(sum((observed - base) * np.log(observed / base)))
     completed = db.scalars(
-        select(ForecastSnapshot).where(
+        tenant_select(db, ForecastSnapshot).where(
             ForecastSnapshot.version == b["version"],
             ForecastSnapshot.actual.is_not(None),
         )
@@ -1287,7 +1558,15 @@ def monitor(user=Depends(admin_required), db=Depends(get_db)):
 
 
 @app.post("/admin/ab-simulate")
-def experiment(body: Experiment, user=Depends(admin_required)):
+def experiment(
+    body: Experiment,
+    ctx: tuple[Tenant, User] = Depends(require_tenant_role("owner", "admin")),
+):
+    if ctx[0].id != DEFAULT_TENANT_ID:
+        raise HTTPException(
+            503, "Offline intelligence is unavailable for this storefront"
+        )
+    tenant, user = ctx
     from .ml.experiments import ab_simulate
 
     return ab_simulate(**body.model_dump())
@@ -1298,9 +1577,10 @@ def export(
     kind: str = "sales",
     start: str | None = None,
     end: str | None = None,
-    user=Depends(admin_required),
+    ctx: tuple[Tenant, User] = Depends(require_tenant_role("owner", "admin")),
     db=Depends(get_db),
 ):
+    tenant, user = ctx
     from .analytics import date_range
 
     if kind == "inventory":
@@ -1314,10 +1594,10 @@ def export(
                 "pinned": p.pinned,
                 "hidden": p.hidden,
             }
-            for p in db.scalars(select(Product))
+            for p in db.scalars(tenant_select(db, Product))
         ]
     elif kind == "tracking":
-        tracked = admin_tracking(None, user, db)
+        tracked = admin_tracking(None, ctx, db)
         rows = [r | {"version": bundle()["version"]} for r in tracked["holdout"]]
         rows.extend(r | {"kind": "live_snapshot"} for r in tracked["live"])
     elif kind == "sales":
@@ -1331,7 +1611,11 @@ def export(
                 "simulated": o.simulated,
             }
             for o in db.scalars(
-                select(Order).where(Order.created_at >= lo, Order.created_at < hi, or_(Order.payment_status.is_(None), Order.payment_status == "paid"))
+                tenant_select(db, Order).where(
+                    Order.created_at >= lo,
+                    Order.created_at < hi,
+                    or_(Order.payment_status.is_(None), Order.payment_status == "paid"),
+                )
             )
         ]
     else:
