@@ -2,6 +2,7 @@
 Tick [x] when a phase's Done-when checks pass.
 
 ## Assumptions
+- 5 November 2026 security maintenance stays on the existing single-store production branch; the larger multi-tenant main release remains separate. See docs/PRODUCTION_SECURITY_BACKPORT.md for exact validation and limitations.
 - The user explicitly requested all phases without pauses and Vercel as the deployment target. Do not add Docker or pause between completed phases.
 - The phase 6-9 source was published on `complete-phases-real-catalog` at `00b39de`; its file tree exactly matched prepared source `560f2a4`, including the Vercel guard's corrected `date` import. Follow-up commit `2e19249` corrects browser test timing and selectors; `bebe4a5` updates the frontend to the current K=10 metrics and two-tower ablation reports. Original phase commits are retained in `prepared-phase-6-9.bundle` on the recovery branch. Native CI and a Vercel Preview have run against the published source.
 - The current reference catalogue has 150 real fragrances across 35 brands and 297 size variants. Prices, stock, users, quizzes, browsing activity, orders and all model-training behaviour are simulated. Product-source links do not verify authenticity or current availability.
