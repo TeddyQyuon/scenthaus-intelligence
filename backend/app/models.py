@@ -91,6 +91,29 @@ class TenantDomain(Base):
     created_at = Column(DateTime, default=now, nullable=False)
 
 
+class TenantDomainChallenge(Base):
+    """Expiring ownership claims; only verified claims activate a domain."""
+
+    __tablename__ = "tenant_domain_challenges"
+    id = Column(String(36), primary_key=True, default=uid)
+    tenant_id = Column(
+        String(36),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    domain = Column(String(253), nullable=False, index=True)
+    is_primary = Column(Boolean, default=True, nullable=False)
+    verification_token = Column(String(64), nullable=False)
+    created_at = Column(DateTime, default=now, nullable=False)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "domain", name="uq_domain_challenge_tenant_domain"
+        ),
+    )
+
+
 class Membership(Base):
     __tablename__ = "memberships"
     id = Column(String(36), primary_key=True, default=uid)
@@ -135,7 +158,9 @@ class BackgroundJob(Base):
     created_at = Column(DateTime, default=now, nullable=False)
     completed_at = Column(DateTime)
     __table_args__ = (
-        CheckConstraint("status IN ('pending','running','completed','failed','dead_letter')"),
+        CheckConstraint(
+            "status IN ('pending','running','completed','failed','dead_letter')"
+        ),
     )
 
 

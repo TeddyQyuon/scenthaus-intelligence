@@ -10,6 +10,8 @@ from argon2 import PasswordHasher
 from .database import get_db
 from .models import Session, User, now
 from .config import settings
+from .tenancy.deps import resolve_tenant
+from .models import Membership, Tenant
 
 hasher = PasswordHasher()
 
@@ -49,7 +51,9 @@ def request_details(request: Request | None) -> dict:
     raw_ip = (
         request.headers.get("x-vercel-forwarded-for", "").split(",")[0].strip()
         if trusted_edge
-        else request.client.host if request.client else ""
+        else request.client.host
+        if request.client
+        else ""
     )
     try:
         address = str(ip_address(raw_ip))
@@ -116,14 +120,37 @@ def user_required(request: Request, db=Depends(get_db)):
         ):
             raise HTTPException(403, "CSRF check failed")
     session = db.get(Session, digest(request.cookies["scenthaus_session"]))
-    if session.last_seen_at is None or session.last_seen_at < now() - timedelta(minutes=5):
+    if session.last_seen_at is None or session.last_seen_at < now() - timedelta(
+        minutes=5
+    ):
         session.last_seen_at = now()
         db.commit()
     return user
 
 
-def admin_required(user=Depends(user_required)):
-    if user.role != "admin":
+def store_user_required(
+    tenant: Tenant = Depends(resolve_tenant),
+    user=Depends(user_required),
+):
+    """Customer sessions belong to one storefront, regardless of headers."""
+    if user.tenant_id != tenant.id:
+        raise HTTPException(401, "Start a session for this storefront")
+    return user
+
+
+def admin_required(
+    tenant: Tenant = Depends(resolve_tenant),
+    user=Depends(user_required),
+    db=Depends(get_db),
+):
+    membership = db.scalar(
+        select(Membership).where(
+            Membership.tenant_id == tenant.id,
+            Membership.user_id == user.id,
+            Membership.role.in_(["owner", "admin"]),
+        )
+    )
+    if not membership and not (user.role == "admin" and user.tenant_id == tenant.id):
         raise HTTPException(403, "Admin access required")
     return user
 

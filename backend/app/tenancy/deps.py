@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session as DatabaseSession
 
 from ..database import get_db
 from ..models import Membership, Tenant, TenantDomain, User
-from ..security import user_required
 from .constants import DEFAULT_TENANT_ID, DEFAULT_TENANT_NAME, DEFAULT_TENANT_SLUG
 
 
@@ -64,7 +63,10 @@ def resolve_tenant(
         raw_host = request.headers.get("host", "").split(":")[0].strip().lower()
         if raw_host and raw_host not in {"localhost", "127.0.0.1", "testserver"}:
             domain_row = db.scalar(
-                select(TenantDomain).where(TenantDomain.domain == raw_host)
+                select(TenantDomain).where(
+                    TenantDomain.domain == raw_host,
+                    TenantDomain.verified_at.is_not(None),
+                )
             )
             if domain_row is not None:
                 tenant = db.get(Tenant, domain_row.tenant_id)
@@ -87,6 +89,10 @@ def require_tenant_role(*allowed_roles: str):
     """Require the authenticated user to hold a Membership with one of allowed_roles
     in the active tenant (or be the tenant's admin user).
     """
+    # Import locally so security.py can depend on tenant resolution without a
+    # module-import cycle. Authentication itself remains account-scoped.
+    from ..security import user_required
+
     roles = set(allowed_roles) or {"owner", "admin"}
 
     def _dependency(

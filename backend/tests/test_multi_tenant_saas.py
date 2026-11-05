@@ -66,9 +66,7 @@ def _cleanup_multi_tenant_test_rows():
                     )
                 )
             )
-            db.execute(
-                delete(Order).where(Order.tenant_id.in_(non_default_tenants))
-            )
+            db.execute(delete(Order).where(Order.tenant_id.in_(non_default_tenants)))
             db.execute(
                 delete(Variant).where(Variant.tenant_id.in_(non_default_tenants))
             )
@@ -84,27 +82,21 @@ def _cleanup_multi_tenant_test_rows():
                 )
             )
             db.execute(
-                delete(Membership).where(
-                    Membership.tenant_id.in_(non_default_tenants)
-                )
+                delete(Membership).where(Membership.tenant_id.in_(non_default_tenants))
             )
             db.execute(
                 delete(TenantDomain).where(
                     TenantDomain.tenant_id.in_(non_default_tenants)
                 )
             )
-            db.execute(
-                delete(Tenant).where(Tenant.id.in_(non_default_tenants))
-            )
+            db.execute(delete(Tenant).where(Tenant.id.in_(non_default_tenants)))
         if _CREATED_USER_IDS:
             db.execute(
                 delete(SecurityEvent).where(
                     SecurityEvent.user_id.in_(_CREATED_USER_IDS)
                 )
             )
-            db.execute(
-                delete(Session).where(Session.user_id.in_(_CREATED_USER_IDS))
-            )
+            db.execute(delete(Session).where(Session.user_id.in_(_CREATED_USER_IDS)))
             db.execute(delete(User).where(User.id.in_(_CREATED_USER_IDS)))
         db.commit()
 
@@ -151,7 +143,7 @@ def test_hkdf_key_separation_and_totp_rotation():
     assert mf.decrypt(legacy_token.encode("utf-8")) == b"JBSWY3DPEHPK3PXP"
 
 
-def test_cross_tenant_isolation_and_custom_domain_resolution():
+def test_cross_tenant_isolation_and_custom_domain_resolution(monkeypatch):
     suffix = uuid4().hex[:8]
     slug_a = f"maison-lumiere-{suffix}"
     slug_b = f"atelier-noir-{suffix}"
@@ -226,9 +218,7 @@ def test_cross_tenant_isolation_and_custom_domain_resolution():
     assert len(list_a["products"]) == 1
     assert len(list_b["products"]) == 1
     assert list_a["products"][0]["id"] != list_b["products"][0]["id"]
-    assert (
-        list_b["products"][0]["description"] == "Atelier Noir signature edition."
-    )
+    assert list_b["products"][0]["description"] == "Atelier Noir signature edition."
 
     # Owner A cannot mutate Tenant B's catalog (403 Forbidden)
     forbidden = owner_a.put(
@@ -247,6 +237,17 @@ def test_cross_tenant_isolation_and_custom_domain_resolution():
     )
     assert dom.status_code == 201
     assert dom.json()["dns_instructions"]["type"] == "TXT"
+
+    pending = owner_a.get("/storefront/config", headers={"Host": custom_domain})
+    assert pending.json()["tenant_id"] != tenant_a["id"]
+    monkeypatch.setattr(
+        "app.tenancy.domains.dns_txt_values",
+        lambda domain: [dom.json()["dns_instructions"]["value"]],
+    )
+    verified = owner_a.post(
+        f"/tenant/domains/{dom.json()['id']}/verify", headers={"X-Tenant-Slug": slug_a}
+    )
+    assert verified.status_code == 200
 
     cfg = owner_a.get(
         "/storefront/config",
@@ -332,8 +333,7 @@ def test_order_state_machine_and_restock_on_refund():
     )
     assert r2.status_code == 200
     assert (
-        r2.json()["delivery_address"]["fulfilment"]["tracking_number"]
-        == "DHL-99887766"
+        r2.json()["delivery_address"]["fulfilment"]["tracking_number"] == "DHL-99887766"
     )
 
     r3 = owner.post(
@@ -514,4 +514,3 @@ def test_tiered_intelligence_csv_customers_and_gdpr():
     erased = owner.delete("/tenant/compliance/account", headers=headers)
     assert erased.status_code == 200
     assert erased.json()["erased"] is True
-
