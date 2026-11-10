@@ -1,162 +1,63 @@
 # SCENTHAUS Intelligence
 
-[Live fragrance shop](https://scenthaus-intelligence.vercel.app/) · [Portfolio case study](https://teddy-qyuon-portfolio.vercel.app/projects/scenthaus-intelligence) · [Source repository](https://github.com/TeddyQyuon/scenthaus-intelligence) · [Deployment status](reports/deployment.md)
+A fragrance storefront and machine-learning project with recommendations, search, demand forecasting and inventory analytics.
 
-> The live shop contains all 35 requested fragrance houses, 150 product references and 297 size variants, with searchable brand navigation and quick bag actions. Preview and Production use separate Neon databases. Prices and stock are seeded portfolio data. Checkout is integrated with Stripe in test mode. See [release evidence](reports/deployment.md).
+**[Live demo](https://scenthaus-intelligence.vercel.app/)** · [Portfolio case study](https://teddy-qyuon-portfolio.vercel.app/projects/scenthaus-intelligence)
 
-SCENTHAUS Intelligence — a fragrance storefront built with React and Python, featuring personalized recommendations, demand forecasting and inventory analytics. Order history is simulated; reported results demonstrate the pipeline and methods, not real customer performance.
+![SCENTHAUS fragrance storefront with product discovery and collection browsing](.github/preview.webp)
 
-## Catalogue and commerce notice
+## Scope and contribution
 
-The reference catalogue contains **150 real fragrances across 35 brands**, with product-specific photographs and links to manufacturer or retailer sources. Source links identify where each reference came from; they do not verify supplier authenticity or current availability.
+An AI-assisted personal project by Wai Yan Hpone Lat, combining a React storefront, a Python API and offline recommendation, search and forecasting pipelines.
 
-Prices, stock, launch dates, users, browsing events and orders are simulated. Checkout uses server-priced Stripe-hosted payment sessions and signature-verified webhooks. The deployed account is in test mode: it takes no real money and does not dispatch fragrance. Model results use generated behaviour, not real customer or commercial performance.
+- Browse fragrance references with brand and collection filters, search and quick bag actions.
+- Explore recommendations, similar scents and natural-language search.
+- Review model methods and inventory signals in the protected admin area.
+- Use account consent controls, saved items and Stripe test-mode checkout.
 
-## Architecture
+Users, historical demand and order behaviour are simulated. Catalogue references do not establish supplier authenticity, stock availability or commercial uplift. The public shop uses a separately verified storefront release; `main` also contains multi-tenant development work. Check [deployment notes](docs/deployment.md) for release boundaries.
 
-```mermaid
-flowchart TD
-  Storefront["React + Vite storefront"] --> Vercel["Vercel Services"]
-  Vercel --> API["FastAPI functions"]
-  API --> Postgres["Dedicated PostgreSQL"]
-  Build["Isolated CPU model build"] --> Bundle["Versioned serving bundle"]
-  Bundle --> API
-  Build --> Postgres
+## Stack
+
+React, Vite, FastAPI, SQLAlchemy, PostgreSQL, Python, PyTorch, NumPy, ONNX Runtime and Stripe. Vercel hosts the application; training and serving are separate workflows.
+
+## Run locally
+
+Use Python 3.12, Node.js and a new, empty development PostgreSQL database. Create and activate a Python virtual environment, then:
+
+```bash
+git clone https://github.com/TeddyQyuon/scenthaus-intelligence.git
+cd scenthaus-intelligence
+python -m pip install -r backend/requirements-training.txt
+npm --prefix frontend ci
 ```
 
-The browser uses one origin for the storefront and `/api`. PostgreSQL owns accounts, consent, saved items, simulated commerce and audit records. Vercel builds model artifacts from the consented dataset and packages them with the API deployment; API requests only run inference. Runtime recommendation inference uses cached NumPy arrays. Natural-language query embeddings use a pinned, quantized ONNX MiniLM encoder.
+Copy `backend/.env.example` to `backend/.env` and configure your local database and unique development credentials. From `backend/`, migrate and prepare the development dataset and models:
 
-## Features
+```bash
+alembic upgrade head
+python -m app.seed
+python -m ml.train_all
+python -m uvicorn app.main:app --reload
+```
 
-- Browse a searchable directory of all 35 fragrance houses. Brand links open the filtered collection directly, including on mobile.
-- Browse and filter real fragrance references by brand, notes, size, budget, season and stock annotation in a beauty-retail storefront, with quick add-to-bag actions.
-- Use hybrid recommendations, an accord-based quiz, similar-scent suggestions and natural-language search with example queries.
-- Save a wishlist and bag to the account; review contact/delivery details and pay through Stripe-hosted Checkout in test mode.
-- Review demand forecasts, model comparisons, interval bands, inventory signals, model version and method notes in the protected admin area.
-- Manage default-off personalization consent, export personal data and withdraw tracking consent.
-
-## Evaluation on generated data
-
-The training snapshot has **2,000 simulated users, 78 weeks of history, 150 catalogue products, 35 brands and 297 size variants**. The recommender uses 52/13/13-week chronological cutoffs and evaluates 1,058 users against novel purchases. Search labels are generated from catalogue rules and have not been human-reviewed.
-
-| Recommender | Precision@10 | Recall@10 | NDCG@10 | Coverage | Brand diversity |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Popularity | 0.03195 | 0.18188 | 0.10609 | 0.15068 | 0.35624 |
-| Item CF | 0.03781 | 0.21331 | 0.13731 | 0.97260 | 0.79026 |
-| Content | 0.02420 | 0.13533 | 0.08460 | 0.28082 | 0.23913 |
-| Hybrid | 0.03696 | 0.20821 | 0.13679 | 0.94521 | 0.81786 |
-| Two-tower, full | 0.03743 | 0.21113 | 0.13405 | 0.60959 | 0.75208 |
-
-Item CF has the highest NDCG among these rows. The two-tower BPR loss ablation scored 0.14087 in `ml/reports/recommender.md`; this single-seed diagnostic does not establish a consistent improvement. No result establishes real-market preference or commercial uplift.
-
-| Search method | MRR@10 | NDCG@10 | Draft queries | Human-reviewed |
-| --- | ---: | ---: | ---: | ---: |
-| BM25 | 0.93889 | 0.93562 | 60 | 0 |
-| Dense MiniLM | 0.92183 | 0.88918 | 60 | 0 |
-| Hybrid reciprocal-rank fusion | 0.95278 | 0.93623 | 60 | 0 |
-
-These labels test the search pipeline and overlap with catalogue text. They are not observed shopper relevance judgements.
-
-| Forecast group | Model | WAPE | sMAPE | MASE | Interval coverage |
-| --- | --- | ---: | ---: | ---: | ---: |
-| SKU | LSTM, 3 seeds | 86.70% | 102.68% | 0.795 | 89.75% |
-| Category | Seasonal naive | 14.75% | 21.55% | 0.933 | 27.08% |
-
-Forecast scores average three expanding test origins and the first four weeks at each origin. Category interval coverage is poor in this run. LSTM and N-BEATS use learned P10/P50/P90 outputs; baseline bands use validation residuals. These are evaluation results on generated weekly demand, not live sales or calibrated stock guarantees. Full tables and protocols are in [`ml/reports/`](ml/reports/) and the [model cards](docs/model-cards.md).
-
-## Run locally without Docker
-
-Prerequisites: Python 3.12, Node.js 22+, and a running native PostgreSQL database. Use a **new empty development database**; the seed command deliberately does not overwrite an existing catalogue. Copy `backend/.env.example` to `backend/.env`, set `DATABASE_URL`, and choose a unique `ADMIN_PASSWORD` before seeding.
-
-1. Install the Python and frontend dependencies:
-
-   ```bash
-   python3.12 -m venv .venv && source .venv/bin/activate && \
-     python -m pip install torch==2.9.0 --index-url https://download.pytorch.org/whl/cpu && \
-     python -m pip install -r backend/requirements-training.txt && \
-     (cd frontend && npm ci)
-   ```
-
-2. Migrate the empty database, generate the simulated dataset and train the serving models:
-
-   ```bash
-   cd backend && PYTHONPATH=..:. ../.venv/bin/alembic upgrade head && \
-     PYTHONPATH=..:. ../.venv/bin/python -m app.seed && \
-     PYTHONPATH=..:. ../.venv/bin/python -m ml.train_all
-   ```
-
-3. From the repository root, start the API, storefront and local MLflow process:
-
-   ```bash
-   source .venv/bin/activate && python scripts/dev.py
-   ```
-
-Storefront: `http://localhost:5173` · API: `http://localhost:8000` · MLflow: `http://localhost:5000`.
-
-## Vercel deployment
-
-Deploy from the repository root. `vercel.json` routes `/api/*` to FastAPI and storefront paths to the React SPA. The API build uses a temporary training environment with CPU PyTorch, migrates a dedicated database, seeds only an empty catalogue, trains the versioned bundle and downloads the pinned ONNX query encoder. Generated model weights are not committed to Git. The deployed function uses the smaller runtime dependency set and does not train on requests.
-
-Set these Vercel environment variables for the relevant environment:
-
-| Variable | Purpose |
-| --- | --- |
-| `DATABASE_URL` | Pooled TLS PostgreSQL URL for API requests. |
-| `DATABASE_URL_UNPOOLED` | Direct PostgreSQL URL for the build-time advisory lock. |
-| `ENVIRONMENT` | Set to `production`. |
-| `SECRET_KEY` | Unique random secret, at least 32 characters. |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Initial administrator created by the empty-database seed. |
-| `CRON_SECRET` | Bearer secret for daily maintenance. |
-| `ALLOWED_ORIGINS` | Exact HTTPS storefront origin. |
-
-Use a separate empty database for Preview and Production; never expose production database credentials to branch previews. The build checks that the catalogue matches this 150-product release and stops if it finds an older or mixed catalogue. It preserves existing records and explains when a clean database is required. See [deployment steps and current hosting evidence](docs/deployment.md).
-
-## Privacy and model limits
-
-Personalization is off until a shopper opts in. Without consent, quiz answers are used for that request only and are not saved. Consent withdrawal deletes tracked events, quiz profile and recommendation references; wishlist, bag and orders remain available for account functionality. Training reads only consented pseudonymous interactions. Previously trained aggregate contributions are removed when the next model build uses the updated consented dataset.
-
-The system is a portfolio demonstration, not a real fragrance retailer. It does not verify stock or authenticity, assess product suitability, enable live payments without merchant configuration, or make purchase and replenishment decisions without human review. See [governance notes](docs/governance.md) and [deployment evidence](reports/deployment.md).
+Include the repository root and `backend/` in `PYTHONPATH` for the ML modules. Model preparation can require significant time and memory. Start the frontend in another terminal with `npm --prefix frontend run dev`.
 
 ## Checks
 
-The final Stripe runtime source `2398d750` passed [native CI run 37598572781](https://github.com/TeddyQyuon/scenthaus-intelligence/actions/runs/37598572781): 119 Python tests with PostgreSQL, 15 frontend unit tests, 12 Playwright journeys, actual model training, Ruff and the frontend production build. Actual deployed Stripe test payment, original signed webhook confirmation, decline, cancellation, refresh and three genuine-event retries passed. See [complete Stripe verification](reports/stripe-verification.md) and [configuration](docs/stripe-checkout.md). Historical model evaluation and earlier checks remain in [verification](reports/verification.md).
+```bash
+python -m pytest
+npm --prefix frontend run test:unit
+npm --prefix frontend run build
+```
 
-## Project documents
+`npm --prefix frontend test` runs browser journeys against a running application. Backend and browser suites require their documented database/model setup; use a disposable test database.
 
-- [Model cards](docs/model-cards.md)
+## Evaluation and architecture
+
+Reported evaluation uses generated behaviour and temporal holdouts. It demonstrates the pipelines and their limitations, not real shopper preferences or business performance.
+
 - [Architecture](docs/architecture.md)
-- [Human involvement and risk](docs/governance.md)
-- [Feature matrix](docs/feature-matrix.md)
-- [Portfolio entry](docs/portfolio-entry.md)
-- [Vercel deployment](docs/deployment.md)
-
-Storefront update (2026-10-07): public pages render while the guest session connects. Product listings do not wait for recommendations. Quick add lets shoppers choose an available bottle size with its simulated SGD price, then view their bag or continue browsing. The mobile header exposes collection search, and the homepage hero uses an optimized WebP asset. Session and size-picker regressions are in `frontend/e2e/storefront.spec.js`.
-
-The release also preserves the deployed account-security extension: authenticator-based two-factor sign-in, single-use recovery codes, password changes, device sessions, revocation and a 90-day security history. Bag additions use a serialized server-side increment so concurrent additions do not overwrite existing quantities. Quick add checks current availability and lets shoppers choose both bottle size and quantity.
-
-
-## Secure Stripe checkout
-
-See [Stripe configuration and operations](docs/stripe-checkout.md) for required environment variables, webhook events, authoritative pricing, stock reservation, idempotency, test cards and merchant launch limitations. `/checkout` is the storefront checkout; `/api/stripe/webhook` receives signed payment confirmations. The legacy demo payment endpoint is retired.
-
-### Storefront UX refinement - October 2026
-
-The collection now shows removable active-filter chips and a clear-all action,
-announces result updates, and explains when natural-language search controls the
-results. Mobile filter controls use a two-column grid. Wishlist state is exposed
-to assistive technology and shopping controls have larger touch targets.
-Frontend production build and the 15 existing unit tests pass for this change.
-
-### Storefront refresh — 4 November 2026
-
-The storefront adds an editorial ivory/sage theme, scent-family discovery cards,
-a native keyboard-accessible search dialog, URL-backed collection filters,
-mobile filter disclosure and 24-at-a-time browsing. Motion uses CSS transforms
-and a single route-level intersection observer, respecting reduced-motion
-preferences. Fonts are served locally with swap rendering and their OFL licenses.
-
-Local product photographs have generated 320px/640px WebP alternatives. Regenerate
-with `python scripts/optimize_storefront_images.py` (Pillow required). Original
-photographs remain available. Checkout code and the search panel load on demand.
-Run `npm --prefix frontend run test:unit` and `npm --prefix frontend run build`.
-See `reports/storefront-refresh-2026-11-04.md` for measured sizes and verification.
+- [Model cards](docs/model-cards.md) and [evaluation reports](ml/reports/)
+- [Deployment guide](docs/deployment.md)
+- [Stripe checkout](docs/stripe-checkout.md)

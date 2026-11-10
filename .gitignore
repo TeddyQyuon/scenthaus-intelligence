@@ -29,3 +29,4 @@ ml/models/
 *.db
 *.db-*
 hf-cache/
+PLAN.md
