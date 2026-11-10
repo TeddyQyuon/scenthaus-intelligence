@@ -38,15 +38,20 @@ test("mobile quick add chooses the exact size and quantity and keeps browsing po
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: product.name });
   await expect(dialog).toBeVisible();
+  const defaultVariant = product.variants.find((entry) => entry.stock > 0);
+  await expect(
+    dialog.getByRole("radio", { name: new RegExp(`^${defaultVariant.size_ml}ml`) }),
+  ).toBeChecked();
   await expect(
     dialog.getByRole("button", { name: "Add to bag", exact: true }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   await expect(
     dialog.getByRole("radio", { name: new RegExp(`^${variant.size_ml}ml`) }),
   ).toBeEnabled();
-  await dialog
-    .getByRole("radio", { name: new RegExp(`^${variant.size_ml}ml`) })
-    .check();
+  await dialog.getByText(`${variant.size_ml}ml`, { exact: true }).click();
+  await expect(
+    dialog.getByRole("radio", { name: new RegExp(`^${variant.size_ml}ml`) }),
+  ).toBeChecked();
   await dialog
     .getByRole("button", { name: "Increase quick-add quantity" })
     .click();

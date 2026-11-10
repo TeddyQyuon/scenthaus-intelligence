@@ -74,7 +74,7 @@ test("quick add uses the chosen size and prevents duplicate submission on mobile
   const dialog = page.getByRole("dialog", { name: "Test fragrance" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("radio", { name: /50ml/ })).toBeDisabled();
-  await dialog.getByRole("radio", { name: /100ml/ }).check();
+  await dialog.getByText("100ml", { exact: true }).click();
   await expect(dialog.getByRole("radio", { name: /100ml/ })).toBeChecked();
   await dialog.getByRole("button", { name: "Add to bag", exact: true }).click();
   await expect(dialog.getByRole("button", { name: "Adding…" })).toBeDisabled();
@@ -104,7 +104,7 @@ test("quick add waits for the session and increments the existing bag atomically
   });
   await page.goto("/");
   await page.getByRole("button", { name: "Quick add Test fragrance" }).first().click();
-  await page.getByRole("dialog").getByRole("radio", { name: /30ml/ }).check();
+  await page.getByRole("dialog").getByText("30ml", { exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Add to bag", exact: true }).click();
   expect(writes).toEqual([]);
   release();
