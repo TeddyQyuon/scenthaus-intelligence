@@ -1,6 +1,6 @@
 # Feature matrix
 
-This matrix describes the current `complete-phases-real-catalog` source. Products are real references; historical activity, prices and inventory are seeded portfolio data. The storefront upgrade is deployed, and the Stripe checkout release is verified separately in `reports/stripe-verification.md`.
+This matrix describes the current `complete-phases-real-catalog` source. Products are real references; historical activity, prices and inventory are seeded portfolio data. The storefront upgrade and Stripe checkout release are deployed on Vercel.
 
 | Area | Implemented behaviour | Source |
 | --- | --- | --- |

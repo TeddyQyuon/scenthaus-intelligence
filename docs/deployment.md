@@ -40,7 +40,7 @@ After setting environment values and deploying, verify:
 5. Guest access to `/admin/forecast` is rejected, and an admin can inspect model versions, forecast comparisons and inventory signals.
 6. Vercel logs show no API errors and the scheduled `/api/internal/maintenance` request is authorized with `CRON_SECRET`.
 
-Do not change the public demo alias until the new release passes these checks. Current account and deployment observations are in [`reports/deployment.md`](../reports/deployment.md); automated code checks are tracked in [`reports/verification.md`](../reports/verification.md).
+Do not change the public demo alias until the new release passes these checks.
 
 ## Current release status
 
@@ -48,7 +48,7 @@ Separate Neon databases are connected: `scenthaus-reference-preview` is Preview-
 
 The production source branch is `complete-phases-real-catalog`. Automatic production-domain assignment is disabled while builds are staged; manually promote only a verified Production deployment. A Preview must never be promoted directly because it uses the Preview database.
 
-The first clean Preview completed seed/training but exposed an idle-lock connection shutdown at cleanup. Source `7694dcda` holds its direct build connection in a transaction with `pg_advisory_xact_lock` and uses `SET LOCAL idle_in_transaction_session_timeout = '0'`. The override lasts only for this transaction; the connection keeps Neon active during CPU-only training and releases the lock on either successful or failed builds. The runtime dependency list also explicitly includes PyJWT; the isolated packaged-API check verifies startup and JWT auth without the training libraries. Preview and Production source `7694dcda` passed hosted model startup, catalogue, search and guest shopping checks and the public alias was promoted. Source `618a1d1` additionally replaces per-snapshot maintenance queries with a bounded bulk reconciliation. Its nine native tests, four browser journeys and runtime-only API checks passed; the promoted Production Cron returned 200 in 1.83 seconds. The updated portfolio includes its live link and storefront cover. See [`reports/deployment.md`](../reports/deployment.md).
+The first clean Preview completed seed/training but exposed an idle-lock connection shutdown at cleanup. Source `7694dcda` holds its direct build connection in a transaction with `pg_advisory_xact_lock` and uses `SET LOCAL idle_in_transaction_session_timeout = '0'`. The override lasts only for this transaction; the connection keeps Neon active during CPU-only training and releases the lock on either successful or failed builds. The runtime dependency list also explicitly includes PyJWT; the isolated packaged-API check verifies startup and JWT auth without the training libraries. Preview and Production source `7694dcda` passed hosted model startup, catalogue, search and guest shopping checks and the public alias was promoted. Source `618a1d1` additionally replaces per-snapshot maintenance queries with a bounded bulk reconciliation. Its nine native tests, four browser journeys and runtime-only API checks passed; the promoted Production Cron returned 200 in 1.83 seconds. The updated portfolio includes its live link and storefront cover.
 
 ## References
 
