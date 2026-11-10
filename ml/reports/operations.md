@@ -16,7 +16,7 @@ Users, orders and events are **SIMULATED**.
 
 Cross-platform numerical equality is not promised. Fixed seeds, pinned encoder revision and runtime/input-array checksums make differences reviewable. Cached serving refits on all observed history; report metrics remain from earlier untouched test windows. A local PGlite fixture is serialized by an exclusive lock and is not evidence of concurrent native PostgreSQL correctness. Live error reconciliation and drift monitoring are operational heuristics rather than guarantees.
 
-The following local results are historical Phase 6 evidence. Current native PostgreSQL and browser release checks are recorded in [`reports/verification.md`](../../reports/verification.md).
+The following local results are historical Phase 6 evidence.
 
 | Historical local check | Result |
 | --- | --- |
