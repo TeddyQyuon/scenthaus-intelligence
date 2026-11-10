@@ -7,6 +7,7 @@ from uuid import uuid4
 from fastapi import FastAPI, Depends, HTTPException, Request, Response, Query
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy import select, delete, update, text, func, or_
 from sqlalchemy.exc import IntegrityError
 from .config import settings
@@ -45,6 +46,7 @@ app = FastAPI(
 )
 app.include_router(security_router)
 app.include_router(checkout_router)
+app.add_middleware(GZipMiddleware, minimum_size=500)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.origins,
@@ -59,11 +61,13 @@ requests = defaultdict(deque)
 @app.middleware("http")
 async def safeguards(request, call_next):
     start = time.perf_counter()
-    key = (
-        request.client.host if request.client else "unknown",
+    forwarded = request.headers.get("x-vercel-forwarded-for", "").split(",")[0].strip()
+    client_ip = forwarded or (request.client.host if request.client else "unknown")
+    is_auth_mutation = (
         request.url.path.startswith("/auth/")
-        and request.method in {"POST", "PUT", "DELETE"},
-    )
+        or request.url.path.startswith("/api/auth/")
+    ) and request.method in {"POST", "PUT", "DELETE"}
+    key = (client_ip, is_auth_mutation)
     if len(requests) > 10000:
         requests.clear()
     bucket = requests[key]
@@ -74,10 +78,15 @@ async def safeguards(request, call_next):
         return JSONResponse({"detail": "Too many requests"}, status_code=429)
     bucket.append(start)
     if request.method in ["POST", "PUT"]:
-        if (
-            int(request.headers.get("content-length", "0")) > 65536
-            or len(await request.body()) > 65536
-        ):
+        content_length = request.headers.get("content-length")
+        if content_length is not None:
+            try:
+                if int(content_length) > 65536:
+                    return JSONResponse({"detail": "Request too large"}, status_code=413)
+            except ValueError:
+                if len(await request.body()) > 65536:
+                    return JSONResponse({"detail": "Request too large"}, status_code=413)
+        elif len(await request.body()) > 65536:
             return JSONResponse({"detail": "Request too large"}, status_code=413)
     response = await call_next(request)
     elapsed = (time.perf_counter() - start) * 1000
@@ -99,6 +108,19 @@ async def safeguards(request, call_next):
 @app.exception_handler(ValueError)
 async def bad_input(request, exc):
     return JSONResponse({"detail": str(exc)}, status_code=422)
+
+
+def variants_for_products(db, product_ids):
+    grouped = defaultdict(list)
+    if not product_ids:
+        return grouped
+    for v in db.scalars(
+        select(Variant)
+        .where(Variant.product_id.in_(product_ids))
+        .order_by(Variant.size_ml)
+    ):
+        grouped[v.product_id].append(v)
+    return grouped
 
 
 def product_json(p, db, variants=None):
@@ -352,6 +374,7 @@ def results(
         model["index"][p["id"]] for p in eligible if p["pinned"] and p["id"] in rows
     ]
     rank = mmr(model, relevance, candidates, brands, k, pinned)
+    eligible_by_id = {p["id"]: p for p in eligible}
     output = []
     for i in rank:
         pid = model["ids"][i]
@@ -368,22 +391,32 @@ def results(
                 best = max(
                     known, key=lambda old: model["content"][i, model["index"][old]]
                 )
-                source = db.get(Product, best)
-                shared = set(sum(source.notes.values(), [])) & set(
+                source_row = eligible_by_id.get(best)
+                if source_row:
+                    source_name = source_row["name"]
+                    source_notes = source_row["notes"]
+                    source_accords = source_row.get("accords") or []
+                else:
+                    source = db.get(Product, best)
+                    source_name = source.name
+                    source_notes = source.notes
+                    source_accords = source.accords or []
+                shared = set(sum(source_notes.values(), [])) & set(
                     sum(p["notes"].values(), [])
                 )
                 reason = (
-                    f"Because you {'wishlisted' if best in wishes else 'explored'} {source.name}"
+                    f"Because you {'wishlisted' if best in wishes else 'explored'} {source_name}"
                     + (": shared " + ", ".join(sorted(shared)[:3]) if shared else "")
                 )
                 reason_tags = [f"Shared note: {note}" for note in sorted(shared)[:3]]
-                shared_accords = set(source.accords or []) & set(p.get("accords", []))
+                shared_accords = set(source_accords) & set(p.get("accords", []))
                 reason_tags.extend(
                     f"Shared accord: {accord}" for accord in sorted(shared_accords)[:2]
                 )
         if pid in rule_details:
             reason = "Often in the same basket: " + ", ".join(
-                db.get(Product, int(a)).name for a in rule_details[pid]["antecedents"]
+                (eligible_by_id[int(a)]["name"] if int(a) in eligible_by_id else db.get(Product, int(a)).name)
+                for a in rule_details[pid]["antecedents"]
             )
             reason_tags = ["Often bought together"]
         elif quiz or profile:
@@ -626,9 +659,14 @@ def products(
     db=Depends(get_db),
 ):
     global _catalog_cache, _catalog_cache_time
-    is_default = not any([q, category, brand, budget, size, gender, season]) and not in_stock and sort == "featured"
+    use_cache = (
+        get_db not in app.dependency_overrides
+        and not any([q, category, brand, budget, size, gender, season])
+        and not in_stock
+        and sort == "featured"
+    )
     response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
-    if is_default and _catalog_cache is not None and time.time() - _catalog_cache_time < 300:
+    if use_cache and _catalog_cache is not None and time.time() - _catalog_cache_time < 300:
         return _catalog_cache
 
     rows = available(
@@ -659,7 +697,7 @@ def products(
         "products": rows,
         "brands": brands,
     }
-    if is_default:
+    if use_cache:
         _catalog_cache = res
         _catalog_cache_time = time.time()
     return res
@@ -687,7 +725,8 @@ def wishlist(user=Depends(user_required), db=Depends(get_db)):
         .join(Wishlist, Wishlist.product_id == Product.id)
         .where(Wishlist.user_id == user.id, Product.hidden == False)
     ).all()
-    return {"products": [product_json(p, db) for p in rows]}
+    vmap = variants_for_products(db, [p.id for p in rows])
+    return {"products": [product_json(p, db, vmap[p.id]) for p in rows]}
 
 
 @app.put("/wishlist/{pid}")
@@ -722,6 +761,7 @@ def cart(user=Depends(user_required), db=Depends(get_db)):
         .join(Product, Variant.product_id == Product.id)
         .where(CartItem.user_id == user.id)
     ).all()
+    vmap = variants_for_products(db, [p.id for _, _, p in rows])
     items = [
         {
             "variant_id": v.id,
@@ -729,7 +769,7 @@ def cart(user=Depends(user_required), db=Depends(get_db)):
             "size_ml": v.size_ml,
             "price": float(v.price),
             "stock": v.stock,
-            "product": product_json(p, db),
+            "product": product_json(p, db, vmap[p.id]),
         }
         for c, v, p in rows
     ]
@@ -955,8 +995,13 @@ def natural_search(
     products = {
         p.id: p for p in db.scalars(select(Product).where(Product.id.in_(ranked)))
     }
+    vmap = variants_for_products(db, list(products.keys()))
     return {
-        "products": [product_json(products[pid], db) for pid in ranked],
+        "products": [
+            product_json(products[pid], db, vmap[pid])
+            for pid in ranked
+            if pid in products
+        ],
         "parsed": parsed,
         "method": method,
         "model_version": b["version"],
@@ -966,7 +1011,8 @@ def natural_search(
 
 
 @app.get("/intelligence")
-def intelligence():
+def intelligence(response: Response):
+    response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400"
     return bundle()["metrics"]
 
 
@@ -1149,15 +1195,16 @@ def admin_tracking(
 
 @app.get("/admin/products")
 def admin_products(user=Depends(admin_required), db=Depends(get_db)):
-    return [
-        product_json(p, db) for p in db.scalars(select(Product).order_by(Product.id))
-    ]
+    prods = db.scalars(select(Product).order_by(Product.id)).all()
+    vmap = variants_for_products(db, [p.id for p in prods])
+    return [product_json(p, db, vmap[p.id]) for p in prods]
 
 
 @app.put("/admin/products/{pid}")
 def override(
     pid: int, body: Override, user=Depends(admin_required), db=Depends(get_db)
 ):
+    global _catalog_cache
     if body.pinned and body.hidden:
         raise HTTPException(422, "A hidden product cannot be pinned")
     p = db.get(Product, pid)
@@ -1173,6 +1220,7 @@ def override(
         )
     )
     db.commit()
+    _catalog_cache = None
     return {"ok": True}
 
 
@@ -1180,6 +1228,7 @@ def override(
 def stock_update(
     vid: int, body: Stock, user=Depends(admin_required), db=Depends(get_db)
 ):
+    global _catalog_cache
     v = db.get(Variant, vid)
     if not v:
         raise HTTPException(404, "SKU not found")
@@ -1192,6 +1241,7 @@ def stock_update(
         )
     )
     db.commit()
+    _catalog_cache = None
     return {"ok": True}
 
 
