@@ -27,6 +27,7 @@ import {
 } from "recharts";
 import { useShop } from "./context";
 import { api, money, message, download } from "./api";
+import { clearCatalogue } from "./catalogue";
 import { ErrorBox, MetricsTable } from "./App";
 import ModelInfo from "./ModelInfo";
 const tabs = [
@@ -312,6 +313,7 @@ export default function Admin() {
               ? false
               : p.hidden,
       });
+      clearCatalogue();
       await load();
       notify("Recommendation control saved");
     } catch (e) {
@@ -353,6 +355,7 @@ export default function Admin() {
           {tabs.map(([label, Icon]) => (
             <button
               className={tab === label ? "active" : ""}
+              aria-current={tab === label ? "page" : undefined}
               key={label}
               onClick={() => {
                 setTab(label);
@@ -749,7 +752,7 @@ export default function Admin() {
                           <button
                             className="why"
                             onClick={() => {
-                              setChoice({ group: "sku", key: v, horizon: 8 });
+                              setChoice((c) => ({ ...c, group: "sku", key: v, horizon: 8 }));
                               setTab("Forecasts");
                             }}
                           >
@@ -995,6 +998,7 @@ export default function Admin() {
                                   new FormData(e.currentTarget).get("stock"),
                                 ),
                               });
+                              clearCatalogue();
                               await load();
                               notify("Stock updated");
                             } catch (er) {

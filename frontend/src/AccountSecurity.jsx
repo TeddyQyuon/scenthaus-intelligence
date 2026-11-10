@@ -402,6 +402,8 @@ export default function AccountSecurity() {
                 <img
                   className="authenticator-qr"
                   src={qr}
+                  width="220"
+                  height="220"
                   alt="Scan to add your SCENTHAUS account to your authenticator app"
                 />
               )}

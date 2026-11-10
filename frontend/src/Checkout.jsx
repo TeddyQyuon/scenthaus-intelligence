@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, LockKeyhole, Package, ShieldCheck } from "lucide-react";
 import { api, message } from "./api";
+import ProductImage from "./ProductImage";
 import { useShop } from "./context";
 
 export const paymentMoney = (minor) => `S$${new Intl.NumberFormat("en-SG", {
@@ -20,7 +21,7 @@ export function OrderSummary({ order, title = "Your selection" }) {
     <h2>{title}</h2>
     <div className="checkout-items">
       {order.items.map((item) => <div className="checkout-line" key={item.variant_id}>
-        <img src={item.image || "/images/product.png"} alt={item.name} width="80" height="96" />
+        <ProductImage src={item.image || "/images/product.png"} alt={item.name} width="80" height="96" sizes="80px" loading="lazy" decoding="async" />
         <div>
           <p className="eyebrow">{item.brand}</p>
           <strong>{item.name}</strong>

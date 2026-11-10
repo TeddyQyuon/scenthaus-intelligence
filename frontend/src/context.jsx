@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api, setCsrf, message } from "./api";
 const Context = createContext(null);
 export function ShopProvider({ children }) {
@@ -13,40 +13,53 @@ export function ShopProvider({ children }) {
   const mutations = useRef(new Set());
   const cartRef = useRef(cart);
   const wishlistRef = useRef(wishlist);
-  async function refresh() {
+
+  const refresh = useCallback(async () => {
     const [c, w] = await Promise.all([api.get("/cart"), api.get("/wishlist")]);
     cartRef.current = c.data;
     wishlistRef.current = w.data.products;
     setCart(c.data);
     setWishlist(w.data.products);
-  }
-  async function accept(data) {
+  }, []);
+
+  const accept = useCallback(async (data) => {
     setUser(data.user);
     setCsrf(data.csrf);
     await refresh();
     setSessionReady(true);
-  }
-  function init() {
+  }, [refresh]);
+
+  const init = useCallback(() => {
     if (connection.current) return connection.current;
     setError("");
-    connection.current = api.get("/auth/session")
+    connection.current = api
+      .get("/auth/session")
       .then((r) => accept(r.data))
-      .catch((e) => { setError(message(e)); throw e; })
-      .finally(() => { connection.current = null; });
+      .catch((e) => {
+        setError(message(e));
+        throw e;
+      })
+      .finally(() => {
+        connection.current = null;
+      });
     return connection.current;
-  }
-  async function ensureSession() {
+  }, [accept]);
+
+  const ensureSession = useCallback(async () => {
     if (!sessionReady) await init();
-  }
+  }, [sessionReady, init]);
+
   useEffect(() => {
     init().catch(() => {});
-  }, []);
+  }, [init]);
+
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(""), 3500);
     return () => clearTimeout(timer);
   }, [toast]);
-  async function add(v, quantity = 1) {
+
+  const add = useCallback(async (v, quantity = 1) => {
     if (mutations.current.has(v.id)) return;
     mutations.current.add(v.id);
     try {
@@ -58,16 +71,20 @@ export function ShopProvider({ children }) {
       cartRef.current = response.data;
       setCart(response.data);
       setToast(`${v.size_ml} ml added to your bag`);
-    } finally { mutations.current.delete(v.id); }
-  }
-  async function wish(p) {
+    } finally {
+      mutations.current.delete(v.id);
+    }
+  }, [ensureSession]);
+
+  const wish = useCallback(async (p) => {
     await ensureSession();
     if (wishlistRef.current.some((w) => w.id === p.id))
       await api.delete(`/wishlist/${p.id}`);
     else await api.put(`/wishlist/${p.id}`);
     await refresh();
-  }
-  async function consent(value) {
+  }, [ensureSession, refresh]);
+
+  const consent = useCallback(async (value) => {
     if (consentBusy) return;
     await ensureSession();
     const previous = user.consent;
@@ -82,30 +99,39 @@ export function ShopProvider({ children }) {
     } finally {
       setConsentBusy(false);
     }
-  }
-  function track(product_id, event_type = "view", recommendation_id) {
+  }, [consentBusy, ensureSession, user.consent]);
+
+  const track = useCallback((product_id, event_type = "view", recommendation_id) => {
     if (user?.consent)
       api
         .post("/events", { product_id, event_type, recommendation_id })
         .catch(() => {});
-  }
+  }, [user?.consent]);
+
+  const wishlistIds = useMemo(() => new Set(wishlist.map((w) => w.id)), [wishlist]);
+
+  const value = useMemo(
+    () => ({
+      user,
+      sessionReady,
+      cart,
+      wishlist,
+      wishlistIds,
+      refresh,
+      accept,
+      ensureSession,
+      add,
+      wish,
+      consent,
+      consentBusy,
+      track,
+      notify: setToast,
+    }),
+    [user, sessionReady, cart, wishlist, wishlistIds, refresh, accept, ensureSession, add, wish, consent, consentBusy, track],
+  );
+
   return (
-    <Context.Provider
-      value={{
-        user,
-        sessionReady,
-        cart,
-        wishlist,
-        refresh,
-        accept,
-        add,
-        wish,
-        consent,
-        consentBusy,
-        track,
-        notify: setToast,
-      }}
-    >
+    <Context.Provider value={value}>
       {children}
       {error && (
         <div className="connection-notice" role="status">
@@ -125,8 +151,10 @@ export const useShop = () => useContext(Context);
 
 export function SessionBoundary({ children }) {
   const { sessionReady } = useShop();
-  return sessionReady ? children : (
-    <section className="section" role="status">
+  return sessionReady ? (
+    children
+  ) : (
+    <section className="section session-boundary" role="status">
       <h1>Connecting your scent space.</h1>
       <p>Your bag, wishlist and account will be ready shortly.</p>
     </section>

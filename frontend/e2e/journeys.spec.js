@@ -81,7 +81,12 @@ test("real catalog, discovery, consent, wishlist, quiz and secure checkout", asy
   const personalization = page.getByRole("checkbox", {
     name: "Personalize my recommendations",
   });
+  const consentSaved = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === "/api/privacy/consent" &&
+    response.request().method() === "PUT",
+  );
   await personalization.check();
+  expect((await consentSaved).ok()).toBeTruthy();
   await page.reload();
   await expect(
     page.getByRole("checkbox", { name: "Personalize my recommendations" }),
@@ -141,9 +146,14 @@ test("real catalog, discovery, consent, wishlist, quiz and secure checkout", asy
     })
     .toEqual(expect.arrayContaining(["view", "wishlist_add", "add_to_cart"]));
   await page.goto("/privacy");
+  const consentWithdrawn = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === "/api/privacy/consent" &&
+    response.request().method() === "PUT",
+  );
   await page
     .getByRole("checkbox", { name: "Personalize my recommendations" })
     .uncheck();
+  expect((await consentWithdrawn).ok()).toBeTruthy();
   const exported = await page.request.get("/api/privacy/export").then((r) => r.json());
   expect(exported.events).toEqual([]);
   expect(exported.orders).toEqual([]);

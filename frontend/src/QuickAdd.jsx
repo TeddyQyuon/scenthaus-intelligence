@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { Check, Minus, Plus, X } from "lucide-react";
 import { api, money, message } from "./api";
+import { setCachedProduct } from "./catalogue";
 import ProductImage from "./ProductImage";
 import { useShop } from "./context";
 
@@ -13,7 +14,9 @@ export default function QuickAdd({ product, onClose, recommendationId }) {
   const titleId = useId();
   const [current, setCurrent] = useState(product);
   const [selected, setSelected] = useState(
-    product.variants.length === 1 ? product.variants[0].id : null,
+    product.variants.length === 1 && product.variants[0].stock > 0
+      ? product.variants[0].id
+      : null,
   );
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -45,7 +48,15 @@ export default function QuickAdd({ product, onClose, recommendationId }) {
       .get(`/products/${product.slug}`)
       .then((r) => {
         if (active) {
+          setCachedProduct(product.slug, r.data);
           setCurrent(r.data);
+          setSelected((prev) =>
+            r.data.variants.some((v) => v.id === prev && v.stock > 0)
+              ? prev
+              : r.data.variants.length === 1 && r.data.variants[0].stock > 0
+                ? r.data.variants[0].id
+                : null,
+          );
           setAvailable(true);
         }
       })
@@ -107,7 +118,12 @@ export default function QuickAdd({ product, onClose, recommendationId }) {
             <p className="eyebrow">{current.brand}</p>
             <h2 id={titleId}>{current.name}</h2>
             <p className="metadata">
-              {current.category} · {current.concentration}
+              {[
+                current.category,
+                current.concentration !== "Unverified" && current.concentration,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
           </div>
         </div>
@@ -222,6 +238,7 @@ export default function QuickAdd({ product, onClose, recommendationId }) {
           </form>
         )}
       </div>
-    </dialog>, document.body,
+    </dialog>,
+    document.body,
   );
 }

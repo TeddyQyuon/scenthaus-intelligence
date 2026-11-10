@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, memo, Suspense, useEffect, useRef, useState } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -40,7 +40,15 @@ import { useReveals } from "./motion";
 const SearchPanel = lazy(() => import("./SearchPanel"));
 const AccountSecurity = lazy(() => import("./AccountSecurity"));
 import { BRAND_HOUSES } from "./brands";
-import { loadCatalogue, peekCatalogue, filterCatalogue, getFeaturedProducts } from "./catalogue";
+import {
+  loadCatalogue,
+  peekCatalogue,
+  filterCatalogue,
+  getFeaturedProducts,
+  getCachedProduct,
+  setCachedProduct,
+  prefetchProduct,
+} from "./catalogue";
 const Admin = lazy(() => import("./Admin"));
 function Scroll() {
   const { pathname, hash } = useLocation();
@@ -64,13 +72,13 @@ export function ErrorBox({ error }) {
     </p>
   ) : null;
 }
-export function ProductCard({ product: p, rec }) {
-  const { wishlist, wish, track, notify } = useShop(),
+export const ProductCard = memo(function ProductCard({ product: p, rec, priority = false }) {
+  const { wishlist, wishlistIds, wish, track, notify } = useShop(),
     ref = useRef(null);
   const [why, setWhy] = useState(false),
     [busy, setBusy] = useState(false),
     [quickOpen, setQuickOpen] = useState(false);
-  const saved = wishlist.some((w) => w.id === p.id),
+  const saved = wishlistIds ? wishlistIds.has(p.id) : wishlist.some((w) => w.id === p.id),
     variant = p.variants.find((v) => v.stock > 0);
   useEffect(() => {
     if (!rec?.recommendation_id) return;
@@ -101,6 +109,8 @@ export function ProductCard({ product: p, rec }) {
       <div className={`product-image tone-${p.category.toLowerCase()}`}>
         <Link
           to={`/product/${p.slug}`}
+          onMouseEnter={() => prefetchProduct(p.slug)}
+          onFocus={() => prefetchProduct(p.slug)}
           onClick={() =>
             rec?.recommendation_id &&
             track(p.id, "click", rec.recommendation_id)
@@ -109,7 +119,8 @@ export function ProductCard({ product: p, rec }) {
           <ProductImage
             src={p.image}
             alt={`${p.name} by ${p.brand} — product photograph`}
-            loading="lazy"
+            loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : undefined}
             decoding="async"
             width="400"
             height="400"
@@ -125,11 +136,18 @@ export function ProductCard({ product: p, rec }) {
           <Heart size={19} fill={saved ? "currentColor" : "none"} />
         </button>
         {p.match != null && <span className="match">{p.match}% match</span>}
-        {!p.in_stock && <span className="match">Sold out</span>}
+        {!p.in_stock && <span className={`match ${p.match != null ? "match-sold-out" : ""}`}>Sold out</span>}
       </div>
       <p className="eyebrow">{p.brand}</p>
       <div className="card-title">
-        <Link to={`/product/${p.slug}`} onClick={()=>rec?.recommendation_id&&track(p.id,"click",rec.recommendation_id)}>{p.name}</Link>
+        <Link
+          to={`/product/${p.slug}`}
+          onMouseEnter={() => prefetchProduct(p.slug)}
+          onFocus={() => prefetchProduct(p.slug)}
+          onClick={() => rec?.recommendation_id && track(p.id, "click", rec.recommendation_id)}
+        >
+          {p.name}
+        </Link>
       </div>
       <p className="metadata">
         {[p.category, p.concentration !== "Unverified" && p.concentration,
@@ -156,7 +174,7 @@ export function ProductCard({ product: p, rec }) {
       )}
       {p.why && (
         <>
-          <button className="why" onClick={() => setWhy(!why)}>
+          <button className="why" aria-expanded={why} onClick={() => setWhy(!why)}>
             <Sparkles size={13} /> Why this scent?
           </button>
           {why && (
@@ -170,17 +188,17 @@ export function ProductCard({ product: p, rec }) {
       )}
     </article>
   );
-}
+});
 function ProductSkeleton() {
   return <div className="product-grid" role="status" aria-label="Loading fragrances">
     {[0, 1, 2, 3].map((id) => <div className="product-skeleton" key={id} aria-hidden="true"><div /><span /><span /><span /></div>)}
   </div>;
 }
-export function Grid({ products, rec, limit }) {
+export function Grid({ products, rec, limit, priorityCount = 0 }) {
   return (
     <div className="product-grid">
-      {products?.slice(0, limit || products.length).map((p) => (
-        <ProductCard key={p.id} product={p} rec={rec} />
+      {products?.slice(0, limit || products.length).map((p, idx) => (
+        <ProductCard key={p.id} product={p} rec={rec} priority={priorityCount > 0 && idx < priorityCount} />
       ))}
     </div>
   );
@@ -218,7 +236,18 @@ function Layout() {
         </Link>
         <nav id="main-navigation" aria-label="Main navigation" className={open ? "open" : ""}>
           <NavLink to="/shop">Shop all</NavLink>
-          <Link to="/shop#brands">Shop by brand</Link>
+          <Link
+            to="/shop#brands"
+            onClick={() => {
+              const el = document.getElementById("brands");
+              if (el) {
+                el.setAttribute("open", "");
+                el.scrollIntoView();
+              }
+            }}
+          >
+            Shop by brand
+          </Link>
           <NavLink to="/quiz">Scent finder</NavLink>
           <NavLink to="/intelligence">The intelligence</NavLink>
           <Link className="mobile-account" to="/account">Your account</Link>
@@ -507,11 +536,24 @@ function Shop() {
     if (cached) return filterCatalogue(cached, filters);
     return { products: [], brands: BRAND_HOUSES };
   });
-  const [natural, setNatural] = useState(false),
+  const [natural, setNatural] = useState(
+      () =>
+        searchParams.get("natural") === "1" ||
+        searchParams.get("natural") === "true",
+    ),
     [brandOpen, setBrandOpen] = useState(location.hash === "#brands"),
     [brandQuery, setBrandQuery] = useState(""),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(!peekCatalogue());
+  const naturalCache = useRef({ q: "", data: null });
+
+  const sortNaturalProducts = (list, sort) => {
+    if (!list) return [];
+    const copy = [...list];
+    if (sort === "price-low") copy.sort((a, b) => a.price_from - b.price_from);
+    else if (sort === "price-high") copy.sort((a, b) => b.price_from - a.price_from);
+    return copy;
+  };
 
   useEffect(() => {
     let active = true;
@@ -530,6 +572,10 @@ function Shop() {
 
   useEffect(() => {
     setFilters(readFilters());
+    setNatural(
+      searchParams.get("natural") === "1" ||
+        searchParams.get("natural") === "true",
+    );
   }, [searchParams]);
 
   useEffect(() => {
@@ -539,15 +585,29 @@ function Shop() {
   useEffect(() => {
     let active = true;
     if (natural && filters.q) {
+      if (naturalCache.current.q === filters.q && naturalCache.current.data) {
+        const cachedData = naturalCache.current.data;
+        setData((d) => ({
+          ...cachedData,
+          products: sortNaturalProducts(cachedData.products, filters.sort),
+          brands: cachedData.brands || d.brands,
+        }));
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       const timer = setTimeout(() => {
         api
           .get("/search", { params: { q: filters.q } })
-          .then(
-            (r) =>
-              active &&
-              setData((d) => ({ ...r.data, brands: r.data.brands || d.brands })),
-          )
+          .then((r) => {
+            if (!active) return;
+            naturalCache.current = { q: filters.q, data: r.data };
+            setData((d) => ({
+              ...r.data,
+              products: sortNaturalProducts(r.data.products, filters.sort),
+              brands: r.data.brands || d.brands,
+            }));
+          })
           .catch((e) => active && setError(message(e)))
           .finally(() => active && setLoading(false));
       }, 300);
@@ -675,7 +735,14 @@ function Shop() {
         <input
           type="checkbox"
           checked={natural}
-          onChange={(e) => setNatural(e.target.checked)}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            setNatural(checked);
+            const next = new URLSearchParams(searchParams);
+            if (checked) next.set("natural", "1");
+            else next.delete("natural");
+            setSearchParams(next, { replace: true });
+          }}
         />{" "}
         Describe your scent in natural language
       </label>
@@ -705,7 +772,7 @@ function Shop() {
                   sort: "featured",
                 }));
                 setError("");
-                setSearchParams({ q: query }, { replace: true });
+                setSearchParams({ q: query, natural: "1" }, { replace: true });
               }}
             >
               {query}
@@ -786,7 +853,7 @@ function Shop() {
         )}
       </div>
       <ErrorBox error={error} />
-      {loading && !data.products.length ? <ProductSkeleton /> : <Grid products={data.products} limit={visibleCount} />}
+      {loading && !data.products.length ? <ProductSkeleton /> : <Grid products={data.products} limit={visibleCount} priorityCount={4} />}
       {!loading && data.products.length > 0 && <div className="collection-progress">
         <p role="status">Showing {Math.min(visibleCount, data.products.length)} of {data.products.length} scents</p>
         <progress value={Math.min(visibleCount, data.products.length)} max={data.products.length} aria-label="Fragrances shown" />
@@ -810,9 +877,12 @@ function Shop() {
 }
 function Product() {
   const { slug } = useParams(),
-    { add, wish, wishlist, track, notify, user, sessionReady } = useShop();
+    { add, wish, wishlist, wishlistIds, track, notify, user, sessionReady } = useShop();
   const viewed = useRef(null);
-  const initialProduct = peekCatalogue()?.products?.find((item) => item.slug === slug) || null;
+  const initialProduct =
+    getCachedProduct(slug) ||
+    peekCatalogue()?.products?.find((item) => item.slug === slug) ||
+    null;
   const [p, setP] = useState(initialProduct),
     [selected, setSelected] = useState(
       initialProduct?.variants?.find((v) => v.stock > 0) || initialProduct?.variants?.[0] || null
@@ -822,18 +892,27 @@ function Product() {
     [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
-    if (!initialProduct) setP(null);
+    const cached =
+      getCachedProduct(slug) ||
+      peekCatalogue()?.products?.find((item) => item.slug === slug) ||
+      null;
+    setError("");
+    setP(cached);
+    setSelected(
+      cached?.variants?.find((v) => v.stock > 0) || cached?.variants?.[0] || null,
+    );
     api
       .get(`/products/${slug}`)
       .then((r) => {
         if (!active) return;
+        setCachedProduct(slug, r.data);
         setP(r.data);
         setSelected(
           r.data.variants.find((v) => v.stock > 0) || r.data.variants[0],
         );
       })
       .catch((e) => {
-        if (active && !initialProduct) setError(message(e));
+        if (active && !cached) setError(message(e));
       });
     return () => {
       active = false;
@@ -886,7 +965,13 @@ function Product() {
           <p className="eyebrow">{p.brand}</p>
           <h1>{p.name}</h1>
           <p className="metadata">
-            {p.concentration} · {p.gender} · {p.category}
+            {[
+              p.concentration !== "Unverified" && p.concentration,
+              p.gender,
+              p.category,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
           <p className="detail-description">{p.description}</p>
           <div className="accords">
@@ -923,12 +1008,22 @@ function Product() {
             <button
               className="outline"
               aria-label="Save scent"
+              aria-pressed={
+                wishlistIds
+                  ? wishlistIds.has(p.id)
+                  : wishlist.some((w) => w.id === p.id)
+              }
+              disabled={busy}
               onClick={() => wish(p).catch((e) => notify(message(e)))}
             >
               <Heart
                 size={20}
                 fill={
-                  wishlist.some((w) => w.id === p.id) ? "currentColor" : "none"
+                  (wishlistIds
+                    ? wishlistIds.has(p.id)
+                    : wishlist.some((w) => w.id === p.id))
+                    ? "currentColor"
+                    : "none"
                 }
               />
             </button>
@@ -943,10 +1038,10 @@ function Product() {
           </div>
           <div className="detail-stats">
             <span>
-              Longevity <strong>{p.longevity > 0 ? `${p.longevity} hours` : "Not independently rated"}</strong>
+              Longevity <strong>{p.longevity > 0 ? `${p.longevity} hours` : "Varies by skin & climate"}</strong>
             </span>
             <span>
-              Sillage <strong>{p.sillage}</strong>
+              Sillage <strong>{p.sillage && p.sillage !== "Not rated" ? p.sillage : "Moderate"}</strong>
             </span>
             <span>
               Made for <strong>{p.occasions.join(" / ")}</strong>
@@ -975,7 +1070,7 @@ function Product() {
   );
 }
 function Quiz() {
-  const { user, consent, consentBusy } = useShop(),
+  const { user, consent, consentBusy, ensureSession } = useShop(),
     [answers, setAnswers] = useState({
       mood: "fresh",
       occasion: "office",
@@ -1026,6 +1121,7 @@ function Quiz() {
     setBusy(true);
     setError("");
     try {
+      await ensureSession();
       setResult((await api.post("/recommend/quiz", answers)).data);
     } catch (e) {
       setError(message(e));
@@ -1074,6 +1170,8 @@ function Quiz() {
           {questions[step][2].map(([value, title, copy]) => (
             <button
               key={value}
+              type="button"
+              aria-pressed={answers[questions[step][0]] === value}
               className={answers[questions[step][0]] === value ? "chosen" : ""}
               onClick={() =>
                 setAnswers((a) => ({ ...a, [questions[step][0]]: value }))
@@ -1183,6 +1281,7 @@ function Wishlist() {
 function Cart() {
   const { cart, refresh, notify } = useShop(),
     [recs, setRecs] = useState(null),
+    [updatingId, setUpdatingId] = useState(null),
     [error] = useState("");
   useEffect(() => {
     api
@@ -1191,12 +1290,16 @@ function Cart() {
       .catch(() => {});
   }, [cart.items.length]);
   async function update(v, q) {
+    if (updatingId === v) return;
+    setUpdatingId(v);
     try {
       if (q < 1) await api.delete(`/cart/${v}`);
       else await api.put("/cart", { variant_id: v, quantity: q });
       await refresh();
     } catch (e) {
       notify(message(e));
+    } finally {
+      setUpdatingId(null);
     }
   }
   return (
@@ -1209,7 +1312,15 @@ function Cart() {
             {cart.items.map((i) => (
               <div className="cart-item" key={i.variant_id}>
                 <Link to={`/product/${i.product.slug}`}>
-                  <img src={i.product.image} alt={i.product.name} />
+                  <ProductImage
+                    src={i.product.image}
+                    alt={i.product.name}
+                    width="110"
+                    height="125"
+                    sizes="110px"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </Link>
                 <div>
                   <p className="eyebrow">{i.product.brand}</p>
@@ -1217,11 +1328,18 @@ function Cart() {
                     <h3>{i.product.name}</h3>
                   </Link>
                   <p className="metadata">
-                    {i.size_ml}ml · {i.product.concentration}
+                    {[
+                      `${i.size_ml}ml`,
+                      i.product.concentration !== "Unverified" &&
+                        i.product.concentration,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </p>
                   <div className="quantity">
                     <button
                       className="icon"
+                      disabled={updatingId === i.variant_id}
                       aria-label={`Reduce ${i.product.name} quantity`}
                       onClick={() => update(i.variant_id, i.quantity - 1)}
                     >
@@ -1230,7 +1348,11 @@ function Cart() {
                     <span>{i.quantity}</span>
                     <button
                       className="icon"
-                      disabled={i.quantity >= 10 || i.quantity >= i.stock}
+                      disabled={
+                        updatingId === i.variant_id ||
+                        i.quantity >= 10 ||
+                        i.quantity >= i.stock
+                      }
                       aria-label={`Increase ${i.product.name} quantity`}
                       onClick={() => update(i.variant_id, i.quantity + 1)}
                     >
@@ -1242,6 +1364,7 @@ function Cart() {
                   <strong>{money(i.price * i.quantity)}</strong>
                   <button
                     className="why"
+                    disabled={updatingId === i.variant_id}
                     onClick={() => update(i.variant_id, 0)}
                   >
                     Remove
@@ -1687,7 +1810,7 @@ export default function App() {
             <Route index element={<Home />} />
             <Route path="shop" element={<Shop />} />
             <Route path="product/:slug" element={<Product />} />
-            <Route path="quiz" element={<SessionBoundary><Quiz /></SessionBoundary>} />
+            <Route path="quiz" element={<Quiz />} />
             <Route path="wishlist" element={<SessionBoundary><Wishlist /></SessionBoundary>} />
             <Route path="cart" element={<SessionBoundary><Cart /></SessionBoundary>} />
             <Route path="checkout" element={<SessionBoundary><CheckoutPage /></SessionBoundary>} />
@@ -1696,7 +1819,7 @@ export default function App() {
             <Route path="checkout/cancel" element={<SessionBoundary><CheckoutCancelled /></SessionBoundary>} />
             <Route path="orders/:orderId" element={<SessionBoundary><OrderDetail /></SessionBoundary>} />
             <Route path="account" element={<SessionBoundary><Account /></SessionBoundary>} />
-            <Route path="privacy" element={<SessionBoundary><Privacy /></SessionBoundary>} />
+            <Route path="privacy" element={<Privacy />} />
             <Route path="intelligence" element={<Intelligence />} />
             <Route
               path="*"

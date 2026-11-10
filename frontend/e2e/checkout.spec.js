@@ -3,7 +3,9 @@ import { test, expect } from "@playwright/test";
 for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
   test(`secure checkout layout and saved bag at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
+    const sessionLoaded = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/auth/session");
     await page.goto("/cart");
+    await sessionLoaded;
     const session = await page.request.get("/api/auth/session").then((r) => r.json());
     const catalog = await page.request.get("/api/products").then((r) => r.json());
     const product = catalog.products.find((p) => p.variants.some((v) => v.stock >= 2));

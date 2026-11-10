@@ -5,6 +5,28 @@ import { FEATURED_PRODUCTS } from "./featured";
 const TTL = 60_000;
 const STORAGE_KEY = "scenthaus_catalogue_swr";
 
+const productCache = new Map();
+
+function indexProducts(products) {
+  if (!products) return;
+  for (const p of products) {
+    if (!p._searchText) {
+      p._searchText = [
+        p.name,
+        p.brand,
+        p.category,
+        ...(p.accords || []),
+        ...Object.values(p.notes || {}).flat(),
+      ]
+        .join(" ")
+        .toLowerCase();
+    }
+    if (p.slug && !productCache.has(p.slug)) {
+      productCache.set(p.slug, p);
+    }
+  }
+}
+
 function readStorage() {
   try {
     if (typeof window === "undefined" || !window.sessionStorage) return undefined;
@@ -12,6 +34,7 @@ function readStorage() {
     if (!raw) return undefined;
     const parsed = JSON.parse(raw);
     if (parsed?.data?.products?.length && Date.now() - parsed.time < 3600_000) {
+      indexProducts(parsed.data.products);
       return parsed.data;
     }
   } catch {}
@@ -30,9 +53,28 @@ let cached = readStorage();
 let expires = cached ? Date.now() + TTL : 0;
 let pending;
 
+export function getCachedProduct(slug) {
+  return productCache.get(slug);
+}
+
+export function setCachedProduct(slug, product) {
+  if (slug && product) productCache.set(slug, product);
+}
+
+export function prefetchProduct(slug) {
+  if (!slug || productCache.has(slug)) return;
+  api
+    .get(`/products/${slug}`)
+    .then(({ data }) => {
+      if (data) productCache.set(slug, data);
+    })
+    .catch(() => {});
+}
+
 export function clearCatalogue() {
   cached = undefined;
   expires = 0;
+  productCache.clear();
   try {
     sessionStorage.removeItem(STORAGE_KEY);
   } catch {}
@@ -60,6 +102,7 @@ export function loadCatalogue(force = false) {
       pending = api
         .get("/products")
         .then(({ data }) => {
+          indexProducts(data?.products);
           cached = data;
           expires = Date.now() + TTL;
           writeStorage(data);
@@ -77,6 +120,7 @@ export function loadCatalogue(force = false) {
     pending = api
       .get("/products")
       .then(({ data }) => {
+        indexProducts(data?.products);
         cached = data;
         expires = Date.now() + TTL;
         writeStorage(data);
@@ -97,20 +141,20 @@ export function filterCatalogue(data, filters) {
     if (filters.category && p.category !== filters.category) return false;
     if (filters.gender && p.gender !== filters.gender) return false;
     if (filters.season && !p.seasons?.includes(filters.season)) return false;
-    if (
-      query &&
-      ![
-        p.name,
-        p.brand,
-        p.category,
-        ...(p.accords || []),
-        ...Object.values(p.notes || {}).flat(),
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(query)
-    )
-      return false;
+    if (query) {
+      const text =
+        p._searchText ||
+        [
+          p.name,
+          p.brand,
+          p.category,
+          ...(p.accords || []),
+          ...Object.values(p.notes || {}).flat(),
+        ]
+          .join(" ")
+          .toLowerCase();
+      if (!text.includes(query)) return false;
+    }
     return p.variants.some(
       (v) =>
         (!filters.budget || v.price <= Number(filters.budget)) &&
@@ -122,8 +166,8 @@ export function filterCatalogue(data, filters) {
     filters.sort === "price-low"
       ? (a, b) => a.price_from - b.price_from
       : filters.sort === "price-high"
-      ? (a, b) => b.price_from - a.price_from
-      : (a, b) => Number(!!b.pinned) - Number(!!a.pinned) || a.id - b.id,
+        ? (a, b) => b.price_from - a.price_from
+        : (a, b) => Number(!!b.pinned) - Number(!!a.pinned) || a.id - b.id,
   );
   return { ...data, products };
 }

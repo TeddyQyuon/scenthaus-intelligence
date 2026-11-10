@@ -81,6 +81,14 @@ describe("fragrance discovery", () => {
     fireEvent.click(screen.getByRole("button", { name: "Fresh office scent under $150" }));
     await waitFor(() => expect(screen.getByRole("textbox", { name: "Search the collection" }).value).toBe("Fresh office scent under $150"));
     expect(new URLSearchParams(window.location.search).get("q")).toBe("Fresh office scent under $150");
+    expect(new URLSearchParams(window.location.search).get("natural")).toBe("1");
+  });
+  it("restores natural-language search mode from URL on deep link or browser back", async () => {
+    window.history.replaceState({}, "", "/shop?q=Fresh+office+scent+under+%24150&natural=1");
+    render(<App />);
+    const checkbox = await screen.findByRole("checkbox", { name: "Describe your scent in natural language" });
+    expect(checkbox.checked).toBe(true);
+    expect(screen.getByRole("textbox", { name: "Search the collection" }).value).toBe("Fresh office scent under $150");
   });
   it("uses responsive local images and leaves remote image URLs intact", () => {
     expect(productImageSources("/images/products/001-demo.png")).toEqual({ src: "/images/products/001-demo-640.webp", srcSet: "/images/products/001-demo-320.webp 320w, /images/products/001-demo-640.webp 640w" });

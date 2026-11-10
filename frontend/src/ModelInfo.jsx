@@ -1,4 +1,5 @@
 import { useId, useRef } from "react";
+import { Link } from "react-router-dom";
 
 function versionDate(version) {
   const match = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/.exec(
@@ -32,6 +33,9 @@ export default function ModelInfo({ version, model = "Discovery models" }) {
         ref={dialog}
         className="model-dialog"
         aria-labelledby={titleId}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) dialog.current?.close();
+        }}
       >
         <p className="eyebrow">MODEL CARD</p>
         <h2 id={titleId}>About this model</h2>
@@ -57,7 +61,9 @@ export default function ModelInfo({ version, model = "Discovery models" }) {
           guaranteed future demand. Results demonstrate methods and pipeline
           behaviour, not real customer or commercial performance.
         </p>
-        <a href="/intelligence">View the evaluation and method notes</a>
+        <Link to="/intelligence" onClick={() => dialog.current?.close()}>
+          View the evaluation and method notes
+        </Link>
         <form method="dialog">
           <button className="button">Close model information</button>
         </form>
