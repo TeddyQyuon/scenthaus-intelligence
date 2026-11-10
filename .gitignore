@@ -29,3 +29,19 @@ ml/models/
 *.db
 *.db-*
 hf-cache/
+
+# Generated files and local agent/editor state
+.DS_Store
+Thumbs.db
+*.log
+.ipynb_checkpoints/
+.idea/
+.kiro/
+.codex/
+.cursor/
+AGENTS.md
+CLAUDE.md
+*_UPGRADE.md
+dist/
+build/
+.next/
